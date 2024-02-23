@@ -1,0 +1,9 @@
+**/.DS_Store
+Manifest.toml
+# Ignore compiled object files
+*.o
+*.obj
+
+test.jl
+test2.jl
+simplemodule.*
