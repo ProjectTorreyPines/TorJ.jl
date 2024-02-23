@@ -1,6 +1,7 @@
 module TorJ
 
 import IMAS
+import Optim
 import Interpolations: CubicSplineInterpolation, Flat, AbstractInterpolation
 import ForwardDiff: derivative
 using ModelingToolkit, OrdinaryDiffEq
@@ -83,8 +84,18 @@ eqs = [
 # Create an ODESystem object
 @named ray_model = ModelingToolkit.ODESystem(eqs)
 
-function solve(plasma::Plasma, r0::T, ϕ0::T, z0::T, kr0::T, nϕ0::T, kz0::T, freq::T, tmax::Float64) where {T<:Real}
+function solve(plasma::Plasma, r0::T, ϕ0::T, z0::T, θ_injection::T, freq::T, tmax::Float64) where {T<:Real}
     ω0 = 2π * freq
+
+    # Define the parameters dictionary, if you have any parameters
+    params = [ω => ω0, p => plasma]
+
+    # figure out kr0 and kz0 based on injection angle
+    res = Optim.optimize(kz -> dispersion_relation(plasma, r0, ϕ0, z0, 0.0, 0.0, kz, ω0), 0.0, 1E6, Optim.GoldenSection(), rel_tol=1E-3)
+    k = res.minimizer
+    kr0 = k * cos(θ_injection)
+    kz0 = k * sin(θ_injection)
+    nϕ0 = 0.0
 
     # Define initial conditions and parameter values
     ics = [
@@ -96,13 +107,6 @@ function solve(plasma::Plasma, r0::T, ϕ0::T, z0::T, kr0::T, nϕ0::T, kz0::T, fr
         kz => kz0,
         t => 0.0
     ]
-
-    # Define the parameters dictionary, if you have any parameters
-    params = [ω => ω0, p => plasma]
-
-    KZ = LinRange(1500.0, 2000, 100)
-    DKZ = [dispersion_relation(plasma, r0, ϕ0, z0, kr0, nϕ0, kz, ω0) for kz in KZ]
-    kz0 = KZ[argmin(DKZ)]
 
     # Set up the problem
     tspan = (0.0, tmax)
