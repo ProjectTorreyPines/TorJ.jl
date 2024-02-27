@@ -22,6 +22,15 @@ function ω_pe(ne::Real)
 end
 
 """
+    ω_pi(ne::Real, Z::Real, A::Real)
+
+Returns ion plasma frequency [rad/s] given ion density in m⁻³
+"""
+function ω_pi(ni::Real, Z::Real, A::Real)
+    return sqrt(ni * (Z * constants.e)^2 / (constants.ϵ_0 * A * constants.m_p))
+end
+
+"""
     ω_ce(B::Real)
 
 Returns electron cyclotron frequency [rad/s] given magnetic field B in T
@@ -31,21 +40,12 @@ function ω_ce(B::Real)
 end
 
 """
-    B_ω_ce(ω::Real)
-
-Returns magnetic field B in T for a given electron cyclotron frequency [rad/s]
-"""
-function B_ω_ce(ω::Real)
-    return ω / constants.e * constants.m_e
-end
-
-"""
     ω_ci(B::Real, Z::Real, A::Real)
 
 Returns ion cyclotron frequency [rad/s] given magnetic field B in T and the ion charge and mass in amu
 """
 function ω_ci(B::Real, Z::Real, A::Real)
-    return constants.e * abs(B) * Z / A * constants.m_p
+    return constants.e * abs(B) * Z / (A * constants.m_p)
 end
 
 """
@@ -58,7 +58,9 @@ function S_stix(plasma::Plasma, r, z, ω)
     B = B_spline(plasma, r, z)
     ωpe = ω_pe(ne)
     ωce = ω_ce(B)
-    return 1.0 - ωpe^2 / (ω^2 - ωce^2)
+    ωpi = ω_pi(ne, 1.0, 2.0)
+    ωci = ω_ci(B, 1.0, 2.0)
+    return 1.0 - ωpe^2 / (ω^2 - ωce^2) - ωpi^2 / (ω^2 - ωci^2)
 end
 
 """
@@ -71,7 +73,9 @@ function D_stix(plasma::Plasma, r, z, ω)
     B = B_spline(plasma, r, z)
     ωpe = ω_pe(ne)
     ωce = ω_ce(B)
-    return ωpe^2 * ωce / (ω * (ω^2 - ωce^2))
+    ωpi = ω_pi(ne, 1.0, 2.0)
+    ωci = ω_ci(B, 1.0, 2.0)
+    return ωpe^2 * ωce / (ω * (ω^2 - ωce^2)) + ωpi^2 * ωci / (ω * (ω^2 - ωci^2))
 end
 
 """
@@ -82,5 +86,6 @@ P (Plasma term) of the Stix dielectric tensor
 function P_stix(plasma::Plasma, r, z, ω)
     ne = plasma.ne_spline(r, z)
     ωpe = ω_pe(ne)
-    return 1.0 - ωpe^2 / ω^2
+    ωpi = ω_pi(ne, 1.0, 2.0)
+    return 1.0 - ωpe^2 / ω^2 - ωpi^2 / ω^2
 end
