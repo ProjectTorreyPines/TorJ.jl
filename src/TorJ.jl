@@ -7,8 +7,6 @@ using ModelingToolkit, OrdinaryDiffEq
 
 include("plasma.jl")
 
-include("stix.jl")
-
 include("dispersion.jl")
 
 include("ode.jl")

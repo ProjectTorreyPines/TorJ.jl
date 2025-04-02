@@ -3,41 +3,34 @@
 
 Cold plasma dispersion relation
 """
-function dispersion_relation(plasma::Plasma, r, ϕ, z, kr, nϕ, kz, ω)
-    c = constants.c
 
-    kpar2, kper2 = k_par2_per2(plasma, r, ϕ, z, kr, nϕ, kz)
+const constants = (
+    μ_0=1.25663706212e-6,
+    c=2.99792458e8,
+    ϵ_0=8.8541878128e-12,
+    k_B=1.380649e-23,
+    e=1.602176634e-19,
+    m_e=9.1093837015e-31,
+    m_p=1.67262192369e-27,
+    m_n=1.67492749804e-27,
+    atm=101325.0,
+    m_u=1.6605390666e-27,
+    avog=6.02214076e23
+)
 
-    npar2 = (kpar2 * c^2) / ω^2
-    nper2 = (kper2 * c^2) / ω^2
-
-    S = S_stix(plasma, r, z, ω)
-    D = D_stix(plasma, r, z, ω)
-    P = P_stix(plasma, z, z, ω)
-
-    C4 = S
-    C2 = (npar2 - S) * (P + S) + D^2
-    C0 = P * ((npar2 - S)^2 - D^2)
-
-    return C4 * nper2^2 + C2 * nper2 + C0
+function dispersion_relation(plasma::Plasma, x:: Real, y::Real , z::Real, Nx::Real, Ny::Real, Nz::Real, omega:: Real, mode::Integer)
+    N_abs = sqrt(Nx^2 + Ny^2 + Nz^2)
+    r = sqrt(x^2 + y^2)
+    phi = atan(y,x)
+    Bx, By, Bz = B_spline(plasma, r, phi, z)
+    B_abs = sqrt(Bx^2 + By^2 + Bz^2)
+    N_par = Bx*Nx + By*Ny + Bz*Nz
+    N_par /= B_abs * N_abs
+    X = n_e * constants.e^2.e0/(constants.ϵ_0 * constants.m_e * omega^2)
+    Y = constants.e / (constants.m_e * B_abs * omega)
+    Δ = (1.0 - N_par^2)^2 + 4.0 * N_par^2 * (1.0 - X) / Y^2
+    Δ = sqrt(Δ)
+    Ns_sq = 1.e0 - X + (1.0 +  Real(mode) * Δ + N_par^2)/(2.0 * (-1.0 + X + Y^2)) * X * Y^2
+    return N_abs^2  - Ns_sq
 end
 
-"""
-    k_par2_per2(plasma::Plasma, r, ϕ, z, kr, nϕ, kz)
-
-Compute kpar² and kper²
-"""
-function k_par2_per2(plasma::Plasma, r, ϕ, z, kr, nϕ, kz)
-    Br = plasma.Br_spline(r, z)
-    Bϕ = plasma.Bϕ_spline(r, z)
-    Bz = plasma.Bz_spline(r, z)
-    B = sqrt(Br^2 + Bϕ^2 + Bz^2)
-
-    kϕ = nϕ / r
-    kpar2 = ((kr * Br + kz * Bz + kϕ * Bϕ) / B)^2.0
-
-    k2 = kr^2 + kz^2 + kϕ^2
-    kper2 = k2 - kpar2
-
-    return (kpar2=kpar2, kper2=kper2)
-end

@@ -33,10 +33,11 @@ end
 
 Returns total B from the spline representation of individual components
 """
-function B_spline(plasma::Plasma, r, z)
+function B_spline(plasma::Plasma, r, phi, z)
     Br = plasma.Br_spline(r, z)
     Bϕ = plasma.Bϕ_spline(r, z)
     Bz = plasma.Bz_spline(r, z)
-    B = sqrt(Br^2 + Bϕ^2 + Bz^2)
-    return B
+    Bx = Br * cos(phi) - Bϕ * sin(phi)
+    By = Br * sin(phi) + Bϕ * cos(phi)
+    return Bx, By, Bz
 end
