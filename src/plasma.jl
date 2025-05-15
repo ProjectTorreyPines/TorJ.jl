@@ -1,6 +1,8 @@
-struct Plasma{R<:AbstractRange,I<:AbstractInterpolation}
+
+struct Plasma{R<:Vector,I<:Extrapolation}
     R_coords::R
     Z_coords::R
+    psi_norm_spline::I
     ne_spline::I
     Br_spline::I
     Bz_spline::I
@@ -8,20 +10,30 @@ struct Plasma{R<:AbstractRange,I<:AbstractInterpolation}
 end
 
 """
-    Plasma(R_coords::AbstractRange, Z_coords::AbstractRange, ne_data::Matrix{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T})
+    Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_ne::Vector{T},
+           ne_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T}) where {T<:Real}
 
 Generate Plasma structure from 2D maps of densities and magnetic fields
 """
-function Plasma(R_coords::AbstractRange, Z_coords::AbstractRange, ne_data::Matrix{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T}) where {T<:Real}
+function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_ne::Vector{T},
+                ne_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T}) where {T<:Real}
     # Interpolation objects
-    ne_spline = CubicSplineInterpolation((R_coords, Z_coords), ne_data; extrapolation_bc=Flat())
-    Br_spline = CubicSplineInterpolation((R_coords, Z_coords), Br_data; extrapolation_bc=Flat())
-    Bz_spline = CubicSplineInterpolation((R_coords, Z_coords), Bz_data; extrapolation_bc=Flat())
-    Bϕ_spline = CubicSplineInterpolation((R_coords, Z_coords), Bϕ_data; extrapolation_bc=Flat())
+    r_range = range(R_coords[1], R_coords[end], length(R_coords))
+    z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
+    psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Flat())
+    psi_range = range(psi_ne[1], psi_ne[end], length(psi_ne))
+    ne_prof_spline = CubicSplineInterpolation(psi_range, ne_prof; extrapolation_bc=Flat())
+    ne_data = reshape(ne_prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
+    ne_spline = CubicSplineInterpolation((r_range, z_range), ne_data; extrapolation_bc=Flat())
+    Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Flat())
+    Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Flat())
+    Bϕ_spline = CubicSplineInterpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Flat())
 
+    
     return Plasma(
         R_coords,
         Z_coords,
+        psi_norm_spline,
         ne_spline,
         Br_spline,
         Bz_spline,
