@@ -18,30 +18,31 @@ const constants = (
     avog=6.02214076e23
 )
 
-function eval_plasma(plasma::Plasma, x::T, y::T, z::T, Nx::T, Ny::T, Nz::T, omega::T) where {T<:Real}
-    N_abs = sqrt(Nx^2 + Ny^2 + Nz^2)
-    r = sqrt(x^2 + y^2)
-    phi = atan(y,x)
-    Bx, By, Bz = B_spline(plasma, r, phi, z)
-    n_e = plasma.ne_spline(r, z)
-    B_abs = sqrt(Bx^2 + By^2 + Bz^2)
-    N_par = Bx*Nx + By*Ny + Bz*Nz
-    N_par /= B_abs * N_abs
+function eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real)
+    r = hypot(x[1], x[2])
+    phi = atan(x[2], x[1])
+    B = B_spline(plasma, r, phi, x[3])
+    B_abs = LinearAlgebra.norm(B)
+    n_e = plasma.ne_spline(r, x[3])
+    N_par = LinearAlgebra.dot(N, B ./ B_abs) 
     X = n_e * constants.e^2.e0/(constants.ϵ_0 * constants.m_e * omega^2)
     Y = constants.e / (constants.m_e * B_abs * omega)
     return X, Y, N_par
 end
 
-function refractive_index_sq( X::T, Y::T, N_par::T, mode::Integer) where {T<:Real}
+function refractive_index_sq( X::Real, Y::Real, N_par::Real, mode::Integer)
     Δ = (1.0 - N_par^2)^2 + 4.0 * N_par^2 * (1.0 - X) / Y^2
-    Δ = sqrt(Complex(Δ))
+    if Δ < 0
+        return 0
+    end
+    Δ = sqrt(Δ)
     Ns_sq = 1.e0 - X + (1.0 + Real(mode) * Δ + N_par^2)/(2.0 * (-1.0 + X + Y^2)) * X * Y^2
     return Ns_sq
 end
 
-function dispersion_relation(x::T, N::T, plasma::Plasma, omega:: T, mode::Integer) where {T<:Real}
-    N_abs = sqrt(N[1]^2 + N[2]^2 + N[2]^2)
-    X, Y, N_par = eval_plasma(plasma, x[1], x[2], x[3], N[1], N[2], N[3], omega)
+function dispersion_relation(x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, plasma::Plasma, omega:: Real, mode::Integer)
+    N_abs = LinearAlgebra.norm(N)
+    X, Y, N_par = eval_plasma(plasma, x, N, omega)
     Ns_sq = refractive_index_sq(X, Y, N_par, mode)
     return N_abs^2 - Ns_sq
 end

@@ -51,5 +51,5 @@ function B_spline(plasma::Plasma, r, phi, z)
     Bz = plasma.Bz_spline(r, z)
     Bx = Br * cos(phi) - Bϕ * sin(phi)
     By = Br * sin(phi) + Bϕ * cos(phi)
-    return Bx, By, Bz
+    return vec([Bx By Bz])
 end
