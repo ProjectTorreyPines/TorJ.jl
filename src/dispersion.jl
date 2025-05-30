@@ -18,32 +18,50 @@ const constants = (
     avog=6.02214076e23
 )
 
+
 function eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real)
     r = hypot(x[1], x[2])
     phi = atan(x[2], x[1])
-    B = B_spline(plasma, r, phi, x[3])
+    B_cyl = B_spline(plasma, r, phi, x[3])
+    B = zeros(typeof(phi), 3)
+    B[1] = B_cyl[1] * cos(phi) - B_cyl[2] * sin(phi)
+    B[2] = B_cyl[1] * sin(phi) + B_cyl[2] * cos(phi)
+    B[3] = B_cyl[3]
     B_abs = LinearAlgebra.norm(B)
-    n_e = plasma.ne_spline(r, x[3])
-    N_par = LinearAlgebra.dot(N, B ./ B_abs) 
-    X = n_e * constants.e^2.e0/(constants.ϵ_0 * constants.m_e * omega^2)
-    Y = constants.e / (constants.m_e * B_abs * omega)
-    return X, Y, N_par
+    b = B ./ B_abs
+    N_par = LinearAlgebra.dot(N, b) 
+    n_e = exp(plasma.log_ne_spline(r, x[3])) #
+    X = n_e * constants.e^2/(constants.ϵ_0 * constants.m_e * omega^2)
+    Y = constants.e* B_abs / (constants.m_e * omega)
+    return X, Y, N_par, b
+end
+
+function wrap_eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real, index::Integer)
+    return eval_plasma(plasma, x, N, omega)[index]
+end
+
+function Δ( X::Real, Y::Real, N_par::Real)
+    return (1.0 - N_par^2)^2 + 4.0 * N_par^2 * (1.0 - X) / Y^2
+end
+
+function sqrtΔ( X::Real, Y::Real, N_par::Real)
+    return sqrt(Δ(X, Y, N_par))
 end
 
 function refractive_index_sq( X::Real, Y::Real, N_par::Real, mode::Integer)
-    Δ = (1.0 - N_par^2)^2 + 4.0 * N_par^2 * (1.0 - X) / Y^2
-    if Δ < 0
-        return 0
-    end
-    Δ = sqrt(Δ)
-    Ns_sq = 1.e0 - X + (1.0 + Real(mode) * Δ + N_par^2)/(2.0 * (-1.0 + X + Y^2)) * X * Y^2
+    Ns_sq = 1.e0 - X + (1.0 + Real(mode) * sqrtΔ(X, Y, N_par) + N_par^2)/(2.0 * (-1.0 + X + Y^2)) * X * Y^2
     return Ns_sq
 end
 
 function dispersion_relation(x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, plasma::Plasma, omega:: Real, mode::Integer)
     N_abs = LinearAlgebra.norm(N)
-    X, Y, N_par = eval_plasma(plasma, x, N, omega)
+    X, Y, N_par, b = eval_plasma(plasma, x, N, omega)
     Ns_sq = refractive_index_sq(X, Y, N_par, mode)
     return N_abs^2 - Ns_sq
 end
+function dΛ_dN_ana(N:: AbstractVector{<:Real}, X::Real, Y::Real, N_par::Real, b::AbstractVector{<:Real}, mode::Integer)
+    dNs_sq_dN_par = (N_par*X*Y^2*(1.0 + (Real(mode)*(2.0 - 2*X + (-1.0 + N_par^2)*Y^2))/ (Y^2*sqrtΔ(X, Y, N_par))))/(-1.e0 + X + Y^2)
+    return 2.e0 * N .- b .* dNs_sq_dN_par
+end
+
 

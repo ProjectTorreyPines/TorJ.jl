@@ -5,9 +5,9 @@ import Interpolations: CubicSplineInterpolation, Flat, Extrapolation, gradient
 import ForwardDiff
 import LinearAlgebra
 import IMAS
-using ModelingToolkit, OrdinaryDiffEq
-using ModelingToolkit: Symbolics
+using DifferentialEquations
 using NLsolve
+using LSODA
 
 
 include("plasma.jl")
