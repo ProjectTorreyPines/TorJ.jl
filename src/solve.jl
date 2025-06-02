@@ -79,9 +79,10 @@ function sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
 end
 
 """
-    solve(plasma::Plasma, r0::T, ϕ0::T, z0::T, nϕ0::T, θ_injection::T, freq::T, tmax::Float64) where {T<:Real}
+    make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, steering_angle_pol::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
 
-Launch the ray in a given plasma, given some initial conditions
+Launch the ray in a given Plasma and ray trajectory.
+mode: +1 X-mode, -1 O-mode
 """
 function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, steering_angle_pol::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
     N_vacuum = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol,steering_angle_tor))
@@ -103,7 +104,7 @@ function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, st
     u = Vector{Vector{Float64}}()
     for i in 1:N_steps
         prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
-                          (Float64(i-1)*s_step, Float64(i)*s_step), lsoda(); dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
+                            (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen5(); dtmax=1.e-5, abstol=1.e-6, reltol=1.e-6)
         @time sol = solve(prob)
         u0 = sol.u[end]
         
