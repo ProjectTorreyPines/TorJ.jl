@@ -13,16 +13,27 @@ end
 """
     first_point(p0::T, k0::T, plasma::T)
 
-Finds the first point on the plasma grid along the ray
+Finds the first point on the plasma grid with plasma profile data along the ray
 """
 function first_point(plasma::Plasma, p0::AbstractVector{T}, N0::Vector{T}) where {T<:Real}
     if on_grid(plasma, p0)
-        return p0
+        p_plasma = p0
     else
-        return vec(IMAS.ray_torus_intersect(p0, N0, 
+        p_plasma = vec(IMAS.ray_torus_intersect(p0, N0, 
                                             [plasma.R_coords[1], plasma.R_coords[end]],
                                             [plasma.Z_coords[1], plasma.Z_coords[end]]))
     end
+    g(t) = evaluate(plasma.psi_norm_spline, p_plasma .+ t .* N0) - plasma.psi_prof_max
+    # TODO find better estimate for upper limit of distance between first point on grid and plasma.psi_prof_max
+    p_plasma += find_zero(g, (0.0, 0.5), Bisection(); xtol=1e-6).* N0
+    psi_ref = evaluate(plasma.psi_norm_spline, p_plasma)
+    # If root finding failed horribly we catch it here
+    @assert abs(psi_ref - plasma.psi_prof_max) < 1.e-6
+    if psi_ref > plasma.psi_prof_max
+        # Move a tiny bit in
+        p_plasma += 2.0 * (psi_ref - plasma.psi_prof_max) .* N0
+    end
+    return p_plasma
 end
 
 function refraction_equations!(F::AbstractVector{<:Real}, N::AbstractVector{<:Real}, X::T, Y::T, n0::AbstractVector{T}, 
@@ -86,12 +97,13 @@ mode: +1 X-mode, -1 O-mode
 """
 function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, steering_angle_pol::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
     N_vacuum = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol,steering_angle_tor))
-    println(N_vacuum)
+    # println(N_vacuum)
     p_plasma = first_point(plasma, [x0, y0, z0], N_vacuum)
-
+    # Make sure we are on the grid and within the bounds of the profiles for the first step
+    @assert evaluate(plasma.psi_norm_spline, p_plasma) <= plasma.psi_prof_max
 
     N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *freq, mode)
-    println(N_plasma)
+    # println(N_plasma)
     @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
 
     u0 = [p_plasma; N_plasma] # concatenate for the solver
@@ -99,12 +111,13 @@ function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, st
 
     # Initial condition u₀ = [x₀, N₀] that satisfies Λ(x₀, N₀) ≈ 0
     # Solve the ODE
-    N_steps = 100
+    N_steps = 10
     s_step = s_max / Float64(N_steps)
-    u = Vector{Vector{Float64}}()
+    # Add the first two points
+    u = vec([vec([x0, y0, z0]), p_plasma])
     for i in 1:N_steps
         prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
-                            (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen5(); dtmax=1.e-5, abstol=1.e-6, reltol=1.e-6)
+                            (Float64(i-1)*s_step, Float64(i)*s_step), lsoda(); dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
         @time sol = solve(prob)
         u0 = sol.u[end]
         

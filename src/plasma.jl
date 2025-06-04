@@ -1,5 +1,5 @@
 
-struct Plasma{R<:Vector,I<:Extrapolation}
+struct Plasma{R<:Vector,I<:Extrapolation, T<:Real}
     R_coords::R
     Z_coords::R
     psi_norm_spline::I
@@ -7,14 +7,7 @@ struct Plasma{R<:Vector,I<:Extrapolation}
     Br_spline::I
     Bz_spline::I
     Bϕ_spline::I
-end
-
-function f_interp(itp::Extrapolation, xq::Real, x_max::Real)
-    if xq <= x_max
-        return itp(xq)
-    else
-        return 
-    end
+    psi_prof_max::T
 end
 
 """
@@ -29,19 +22,9 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
     psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Flat())
-    # Need to smoothly extend n_e
     psi_range = range(psi_ne[1], psi_ne[end], length(psi_ne))
     ne_prof_spline = CubicSplineInterpolation(psi_range, ne_prof; extrapolation_bc=Flat())
     ne_data = reshape(ne_prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
-    dne_dpsi_norm = gradient(ne_prof_spline, psi_ne[end])[1]
-    if dne_dpsi_norm > 0.0
-        throw(ErrorException("N_e must be decreasing or flat at outermost profile point"))
-    end
-    ne_lim = 1.e15 # SOL limit
-    ne_max = ne_prof[end]
-    # Exponential decay
-    alpha = -dne_dpsi_norm / (ne_max - ne_lim)
-    ne_data[psi_norm_data .>  psi_ne[end]] .= ne_lim .+ (ne_max - ne_lim) .* exp.(-alpha .* (psi_norm_data[psi_norm_data .>  psi_ne[end]] .- psi_ne[end]))
     log_ne_spline = CubicSplineInterpolation((r_range, z_range), log.(ne_data); extrapolation_bc=Flat())
     Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Flat())
     Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Flat())
@@ -55,19 +38,33 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
         log_ne_spline,
         Br_spline,
         Bz_spline,
-        Bϕ_spline)
+        Bϕ_spline,
+        maximum(psi_ne))
 end
+
+
+function evaluate(spl::Extrapolation, x::AbstractVector{<:Real})
+    r = hypot(x[1], x[2])
+    z = x[3]
+    return spl(r, z)
+end
+
 
 """
     B_spline(plasma::Plasma, r, z)
 
 Returns total B from the spline representation of individual components
 """
-function B_spline(plasma::Plasma, r, phi, z)
-    Br = plasma.Br_spline(r, z)
-    Bϕ = plasma.Bϕ_spline(r, z)
-    Bz = plasma.Bz_spline(r, z)
+function B_spline(plasma::Plasma, x::AbstractVector{<:Real})
+    Br = evaluate(plasma.Br_spline, x)
+    Bϕ = evaluate(plasma.Bϕ_spline, x)
+    Bz = evaluate(plasma.Bz_spline, x)
+    phi = atan(x[2], x[1])
     Bx = Br * cos(phi) - Bϕ * sin(phi)
     By = Br * sin(phi) + Bϕ * cos(phi)
     return vec([Bx By Bz])
+end
+
+function n_e(plasma::Plasma, x::AbstractVector{<:Real})
+    return exp(evaluate(plasma.log_ne_spline, x)) #
 end

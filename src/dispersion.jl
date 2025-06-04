@@ -20,18 +20,12 @@ const constants = (
 
 
 function eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real)
-    r = hypot(x[1], x[2])
-    phi = atan(x[2], x[1])
-    B_cyl = B_spline(plasma, r, phi, x[3])
-    B = zeros(typeof(phi), 3)
-    B[1] = B_cyl[1] * cos(phi) - B_cyl[2] * sin(phi)
-    B[2] = B_cyl[1] * sin(phi) + B_cyl[2] * cos(phi)
-    B[3] = B_cyl[3]
+    B = B_spline(plasma, x)
     B_abs = LinearAlgebra.norm(B)
     b = B ./ B_abs
     N_par = LinearAlgebra.dot(N, b) 
-    n_e = exp(plasma.log_ne_spline(r, x[3])) #
-    X = n_e * constants.e^2/(constants.ϵ_0 * constants.m_e * omega^2)
+    
+    X = n_e(plasma, x) * constants.e^2/(constants.ϵ_0 * constants.m_e * omega^2)
     Y = constants.e* B_abs / (constants.m_e * omega)
     return X, Y, N_par, b
 end

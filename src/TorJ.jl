@@ -7,8 +7,7 @@ import LinearAlgebra
 import IMAS
 using DifferentialEquations
 using NLsolve
-using LSODA
-
+using Roots
 
 include("plasma.jl")
 
