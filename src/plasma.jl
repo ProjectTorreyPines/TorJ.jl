@@ -23,14 +23,15 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
     psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Line())
     psi_range = range(psi_ne[1], psi_ne[end], length(psi_ne))
-    ne_prof_spline = CubicSplineInterpolation(psi_range, log.(ne_prof); extrapolation_bc=Line())
+    ne2 = IMAS.interp1d(psi_ne, ne_prof, :cubic).(psi_range)
+    ne_prof_spline = CubicSplineInterpolation(psi_range, log.(ne2); extrapolation_bc=Line())
     ne_data = reshape(ne_prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
     ne_spline = CubicSplineInterpolation((r_range, z_range), ne_data; extrapolation_bc=Line())
     Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
     Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
     Bϕ_spline = CubicSplineInterpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
 
-    
+
     return Plasma(
         R_coords,
         Z_coords,
