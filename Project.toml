@@ -5,6 +5,8 @@ version = "0.1.0"
 
 [deps]
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 IMAS = "13ead8c1-b7d1-41bb-a6d0-5b8b65ed587a"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -16,6 +18,8 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 
 [compat]
 DifferentialEquations = "7.16.1"
+Enzyme = "0.13.44"
+EnzymeCore = "0.8.8"
 LinearAlgebra = "1.11.0"
 NLsolve = "4.5.1"
 OrdinaryDiffEq = "6.95.0"

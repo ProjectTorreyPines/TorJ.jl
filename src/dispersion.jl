@@ -24,9 +24,8 @@ function eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVecto
     B_abs = LinearAlgebra.norm(B)
     b = B ./ B_abs
     N_par = LinearAlgebra.dot(N, b) 
-    
     X = n_e(plasma, x) * constants.e^2/(constants.ϵ_0 * constants.m_e * omega^2)
-    Y = constants.e* B_abs / (constants.m_e * omega)
+    Y = constants.e * B_abs / (constants.m_e * omega)
     return X, Y, N_par, b
 end
 
@@ -47,7 +46,9 @@ function refractive_index_sq( X::Real, Y::Real, N_par::Real, mode::Integer)
     return Ns_sq
 end
 
-function dispersion_relation(x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, plasma::Plasma, omega:: Real, mode::Integer)
+function dispersion_relation(u::AbstractVector{<:Real},  plasma::Plasma, omega:: Real, mode::Integer)
+    x = @view u[1:3]
+    N = @view u[4:6]
     N_abs = LinearAlgebra.norm(N)
     X, Y, N_par, b = eval_plasma(plasma, x, N, omega)
     Ns_sq = refractive_index_sq(X, Y, N_par, mode)

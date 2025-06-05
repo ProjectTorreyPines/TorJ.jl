@@ -3,7 +3,7 @@ struct Plasma{R<:Vector,I<:Extrapolation, T<:Real}
     R_coords::R
     Z_coords::R
     psi_norm_spline::I
-    log_ne_spline::I
+    ne_spline::I
     Br_spline::I
     Bz_spline::I
     Bϕ_spline::I
@@ -21,21 +21,21 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     # Interpolation objects
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
-    psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Flat())
+    psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Line())
     psi_range = range(psi_ne[1], psi_ne[end], length(psi_ne))
-    ne_prof_spline = CubicSplineInterpolation(psi_range, ne_prof; extrapolation_bc=Flat())
+    ne_prof_spline = CubicSplineInterpolation(psi_range, log.(ne_prof); extrapolation_bc=Line())
     ne_data = reshape(ne_prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
-    log_ne_spline = CubicSplineInterpolation((r_range, z_range), log.(ne_data); extrapolation_bc=Flat())
-    Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Flat())
-    Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Flat())
-    Bϕ_spline = CubicSplineInterpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Flat())
+    ne_spline = CubicSplineInterpolation((r_range, z_range), ne_data; extrapolation_bc=Line())
+    Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
+    Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
+    Bϕ_spline = CubicSplineInterpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
 
     
     return Plasma(
         R_coords,
         Z_coords,
         psi_norm_spline,
-        log_ne_spline,
+        ne_spline,
         Br_spline,
         Bz_spline,
         Bϕ_spline,
@@ -66,5 +66,5 @@ function B_spline(plasma::Plasma, x::AbstractVector{<:Real})
 end
 
 function n_e(plasma::Plasma, x::AbstractVector{<:Real})
-    return exp(evaluate(plasma.log_ne_spline, x)) #
+    return exp(evaluate(plasma.ne_spline, x)) #
 end
