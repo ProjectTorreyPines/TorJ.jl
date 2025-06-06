@@ -3,41 +3,60 @@
 
 Cold plasma dispersion relation
 """
-function dispersion_relation(plasma::Plasma, r, ϕ, z, kr, nϕ, kz, ω)
-    c = constants.c
 
-    kpar2, kper2 = k_par2_per2(plasma, r, ϕ, z, kr, nϕ, kz)
+const constants = (
+    μ_0=1.25663706212e-6,
+    c=2.99792458e8,
+    ϵ_0=8.8541878128e-12,
+    k_B=1.380649e-23,
+    e=1.602176634e-19,
+    m_e=9.1093837015e-31,
+    m_p=1.67262192369e-27,
+    m_n=1.67492749804e-27,
+    atm=101325.0,
+    m_u=1.6605390666e-27,
+    avog=6.02214076e23
+)
 
-    npar2 = (kpar2 * c^2) / ω^2
-    nper2 = (kper2 * c^2) / ω^2
 
-    S = S_stix(plasma, r, z, ω)
-    D = D_stix(plasma, r, z, ω)
-    P = P_stix(plasma, z, z, ω)
-
-    C4 = S
-    C2 = (npar2 - S) * (P + S) + D^2
-    C0 = P * ((npar2 - S)^2 - D^2)
-
-    return C4 * nper2^2 + C2 * nper2 + C0
+function eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real)
+    B = B_spline(plasma, x)
+    B_abs = LinearAlgebra.norm(B)
+    b = B ./ B_abs
+    N_par = LinearAlgebra.dot(N, b) 
+    X = n_e(plasma, x) * constants.e^2/(constants.ϵ_0 * constants.m_e * omega^2)
+    Y = constants.e * B_abs / (constants.m_e * omega)
+    return X, Y, N_par, b
 end
 
-"""
-    k_par2_per2(plasma::Plasma, r, ϕ, z, kr, nϕ, kz)
-
-Compute kpar² and kper²
-"""
-function k_par2_per2(plasma::Plasma, r, ϕ, z, kr, nϕ, kz)
-    Br = plasma.Br_spline(r, z)
-    Bϕ = plasma.Bϕ_spline(r, z)
-    Bz = plasma.Bz_spline(r, z)
-    B = sqrt(Br^2 + Bϕ^2 + Bz^2)
-
-    kϕ = nϕ / r
-    kpar2 = ((kr * Br + kz * Bz + kϕ * Bϕ) / B)^2.0
-
-    k2 = kr^2 + kz^2 + kϕ^2
-    kper2 = k2 - kpar2
-
-    return (kpar2=kpar2, kper2=kper2)
+function wrap_eval_plasma(plasma::Plasma, x::AbstractVector{<:Real}, N::AbstractVector{<:Real}, omega::Real, index::Integer)
+    return eval_plasma(plasma, x, N, omega)[index]
 end
+
+function Δ( X::Real, Y::Real, N_par::Real)
+    return (1.0 - N_par^2)^2 + 4.0 * N_par^2 * (1.0 - X) / Y^2
+end
+
+function sqrtΔ( X::Real, Y::Real, N_par::Real)
+    return sqrt(Δ(X, Y, N_par))
+end
+
+function refractive_index_sq( X::Real, Y::Real, N_par::Real, mode::Integer)
+    Ns_sq = 1.e0 - X + (1.0 + Real(mode) * sqrtΔ(X, Y, N_par) + N_par^2)/(2.0 * (-1.0 + X + Y^2)) * X * Y^2
+    return Ns_sq
+end
+
+function dispersion_relation(u::AbstractVector{<:Real},  plasma::Plasma, omega:: Real, mode::Integer)
+    x = @view u[1:3]
+    N = @view u[4:6]
+    N_abs = LinearAlgebra.norm(N)
+    X, Y, N_par, b = eval_plasma(plasma, x, N, omega)
+    Ns_sq = refractive_index_sq(X, Y, N_par, mode)
+    return N_abs^2 - Ns_sq
+end
+function dΛ_dN_ana(N:: AbstractVector{<:Real}, X::Real, Y::Real, N_par::Real, b::AbstractVector{<:Real}, mode::Integer)
+    dNs_sq_dN_par = (N_par*X*Y^2*(1.0 + (Real(mode)*(2.0 - 2*X + (-1.0 + N_par^2)*Y^2))/ (Y^2*sqrtΔ(X, Y, N_par))))/(-1.e0 + X + Y^2)
+    return 2.e0 * N .- b .* dNs_sq_dN_par
+end
+
+

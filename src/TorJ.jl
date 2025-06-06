@@ -1,18 +1,20 @@
 module TorJ
 
 import Optim
-import Interpolations: CubicSplineInterpolation, Flat, AbstractInterpolation
-import ForwardDiff: derivative
-using ModelingToolkit, OrdinaryDiffEq
+import Interpolations: CubicSplineInterpolation, Line, Extrapolation, gradient
+import ForwardDiff
+import LinearAlgebra
+import IMAS
+using DifferentialEquations
+using NLsolve
+using Roots
+import Enzyme: autodiff, Duplicated, Const, Reverse
 
 include("plasma.jl")
 
-include("stix.jl")
-
 include("dispersion.jl")
 
-include("ode.jl")
-
 include("solve.jl")
+
 
 end # module TorJ
