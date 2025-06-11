@@ -37,21 +37,11 @@ for i in 1:length(ecrad_ref["x"])
     N = vec([ecrad_ref["Nx"][i]; ecrad_ref["Ny"][i]; ecrad_ref["Nz"][i]])
     B_test = TorJ.B_spline(plasma,x)
     B_diff = B_test .- vec([ecrad_ref["Bx"][i];ecrad_ref["By"][i];ecrad_ref["Bz"][i]])
-    if maximum(abs.(B_diff)) > 1.e-7
-        println("B: $B_diff")
-    end
+    @test maximum(abs.(B_diff)) < 1.e-6
     ne = TorJ.n_e(plasma, x)
-    ne_diff = (ne - ecrad_ref["ne"][i]) / (2.0 * (ne + ecrad_ref["ne"][i]))
-    if abs(ne_diff) > 4.e-2
-        println("n_e: $ne_diff")
-    end
+    ne_rel_diff = (ne - ecrad_ref["ne"][i]) / (2.0 * (ne + ecrad_ref["ne"][i]))
+    @test abs(ne_rel_diff) < 1.e-2
     X, Y = TorJ.eval_plasma(plasma, x, N, 2.0 * pi * freq)
-    # X_diff = X - ecrad_ref["X"][i]
-    # if abs(X_diff) > 1.e-7
-    #     println("X: $X_diff")
-    # end
-    Y_diff = Y - ecrad_ref["Y"][i]
-    if abs(Y_diff) > 1.e-7
-        println("Y: $Y_diff")
-    end
+    Y_diff = abs(Y - ecrad_ref["Y"][i])
+    @test Y_diff < 1.e-6
 end
