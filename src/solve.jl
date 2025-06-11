@@ -76,19 +76,12 @@ function gradΛ!(du::AbstractVector{<:Real}, u::AbstractVector{<:Real}, plasma::
     # Struggling to get rid of this allocation.
     # It should be easy to use `du` as a temporary array but 
     # in practice it always leads to errors
-    ∂Λ_∂u = zeros(Float64, 6)
-    autodiff(Reverse, dispersion_relation,
-             Duplicated(u, ∂Λ_∂u),      # Compute ∂Λ/∂x
-             Const(plasma),
-             Const(ω),
-             Const(mode))
-    # Normalize with | ∂Λ_∂N |
-    norm_∂Λ_∂N = LinearAlgebra.norm(∂Λ_∂u[4:6])
-    # # Swap du[1:3] with du[4:6]
-    # # dx/ds = ∂Λ_∂N and dN/ds = ∂Λ_∂x
-    du[1:3] .= ∂Λ_∂u[4:6] /norm_∂Λ_∂N
-    du[4:6] .= -∂Λ_∂u[1:3] /norm_∂Λ_∂N
-end
+    ForwardDiff.gradient!(@view(du[4:6]), x -> dispersion_relation(x, u[4:6], plasma, ω, mode), u[1:3])
+    ForwardDiff.gradient!(@view(du[1:3]), N -> dispersion_relation(u[1:3], N, plasma, ω, mode), u[4:6])
+    norm_∂Λ_∂N = LinearAlgebra.norm(du[1:3])
+    du ./= norm_∂Λ_∂N
+    du[4:6] .= -du[4:6]
+end    
 
 # Define the system of ODEs: du/ds = f(u, s)
 function sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
@@ -110,35 +103,36 @@ function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, st
 
     N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *freq, mode)
     # println(N_plasma)
-    @assert abs(dispersion_relation(vec([p_plasma; N_plasma]), plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
+    @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
 
     u0 = [p_plasma; N_plasma] # concatenate for the solver
     # Compute ∂Λ/∂x and ∂Λ/∂N
 
     # Initial condition u₀ = [x₀, N₀] that satisfies Λ(x₀, N₀) ≈ 0
     # Solve the ODE
-    N_steps = 10
+    N_steps = 100
     s_step = s_max / Float64(N_steps)
     # Add the first two points
     u = vec([vec([x0, y0, z0]), p_plasma])
     for i in 1:N_steps
         prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
-                            (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen3(); dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
-        @time sol = solve(prob)
+                          (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen3(); 
+                          dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
+        sol = solve(prob)
         u0 = sol.u[end]
-        
-        X, Y, N_par, b = eval_plasma(plasma, u0[1:3], u0[4:6], 2.0 * pi *freq)
-        R = hypot(u0[1], u0[2])
+        append!(u, sol.u)
+        if evaluate(plasma.psi_norm_spline, u0[1:3]) > 1.0 break end
+        # X, Y, N_par, b = eval_plasma(plasma, u0[1:3], u0[4:6], 2.0 * pi *freq)
+        # R = hypot(u0[1], u0[2])
         # dX_dx_ana_test = dX_dx(plasma, u0[1:3], 2.0 * pi *freq)
         # dX_dx_test = ForwardDiff.gradient((x) -> wrap_eval_plasma(plasma, x, u0[4:6], 2.0 * pi *freq, 1), u0[1:3])
         # println("Analytical dX_dx: ", dX_dx_ana_test)
         # println("Forward diff dX_dx: ", dX_dx_test)
         # println("Analytical - forward diff dX_dx: ", dX_dx_ana_test - dX_dx_test)
         # println("Normalized error: ", 0.5*(dX_dx_ana_test .- dX_dx_test)./(dX_dx_ana_test .+ dX_dx_test))
-        N_s = sqrt(refractive_index_sq(X, Y, N_par, mode))
-        error = dispersion_relation(u0, plasma, 2.0 * pi *freq, mode)
-        println("$R, $X, $Y, $N_par, $N_s, $error")
-        append!(u, sol.u)
+        # N_s = sqrt(refractive_index_sq(X, Y, N_par, mode))
+        # error = dispersion_relation(u0, plasma, 2.0 * pi *freq, mode)
+        # println("$R, $X, $Y, $N_par, $N_s, $error")
     end
     return u
 end

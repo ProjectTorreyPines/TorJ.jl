@@ -8,7 +8,7 @@ import IMAS
 using DifferentialEquations
 using NLsolve
 using Roots
-import Enzyme: autodiff, Duplicated, Const, Reverse
+
 
 include("plasma.jl")
 
