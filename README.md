@@ -12,18 +12,6 @@ julia
 dev TorJ
 ```
 
-NOTE: TorJ uses ModelingToolkits.jl underneath, which can take some time (few minutes) to precompile.
-
-#### Jupyter notebooks
-
-Install jupyter-lab using conda. Then add the Julia kernel to Jupyter-lab with
-
-julia
-]
-add IJulia WebIO
-
 #### Usage
 
-Open `TorJ/test/torJ.ipynb` in jupyter-lab (or VS-code with the Jupyter extension)
-
-If you are not a fan of Jupyter notebooks, take a look and `TorJ/test/runtests.jl`
+See `test/tests/raytrace_test.jl`.
