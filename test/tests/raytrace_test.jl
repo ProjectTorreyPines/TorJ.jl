@@ -10,13 +10,13 @@ include("setup.jl")
     s_torj .= cumsum(s_torj)
     i_ref = 1
     for i in eachindex(ecrad_ref["R"])
-        global i_ref = i
+        i_ref = i
         if abs(ecrad_ref["R"][i] - R0) < abs(ecrad_ref["R"][i+1] - R0) break end
     end
     s_offset_ecrad = ecrad_ref["s"][i_ref]
     i_ref = 1
     for i in eachindex(ecrad_ref["R"])
-        global i_ref = i
+        i_ref = i
         if abs(R[i] - R0) < abs(R[i+1] - R0) break end
     end
     s_offset_torj = s_torj[i_ref]
