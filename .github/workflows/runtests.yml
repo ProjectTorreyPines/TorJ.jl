@@ -1,27 +1,24 @@
-name: runtests
+name: Test
 
 on:
+  push:
+    branches: ["master"]
+    paths:
+      - '.github/workflows/test.yml'
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
   pull_request:
-    branches:
-      - master
+    branches: ["master"]
+    paths:
+      - '.github/workflows/test.yml'
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      
-      - name: Set up Julia
-        uses: julia-actions/setup-julia@v1
-        with:
-          version: '1.10'
-
-      - name: Cache Julia packages
-        uses: julia-actions/cache@v1
-
-      - name: Build Julia packages
-        uses: julia-actions/julia-buildpkg@v1
-
-      - name: Run tests
-        uses: julia-actions/julia-runtest@v1
+    uses: ProjectTorreyPines/GitHubActionsWorkflows/.github/workflows/test.yml@master
+    secrets: inherit
+    with:
+      use_dvc: false

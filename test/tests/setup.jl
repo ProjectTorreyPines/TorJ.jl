@@ -4,12 +4,12 @@ if !@isdefined(TEST_DATA_LOADED)
     using Test
     import IMAS
     import TorJ
+    import Artifacts
+    import Pkg
     using JSON
-
-    using Pkg.Artifacts: ensure_artifact_installed
-
-    ensure_artifact_installed("data", "Artifacts.toml")
-    artifact_path = artifact"data"
+    
+    Pkg.ensure_artifact_installed("data", "Artifacts.toml")
+    artifact_path = Artifacts.artifact"data"
 
     ecrad_ref = open(artifact_path * "/data/ECRad_params.json", "r") do io
         JSON.parse(IOBuffer(read(io)))

@@ -22,10 +22,6 @@ EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
 solve_ext = "Enzyme"
 
 [compat]
-DifferentialEquations = "7.16.1"
 Enzyme = "0.13.44"
 EnzymeCore = "0.8.8"
-LinearAlgebra = "1.11.0"
-NLsolve = "4.5.1"
-OrdinaryDiffEq = "6.95.0"
-Roots = "2.2.7"
+
