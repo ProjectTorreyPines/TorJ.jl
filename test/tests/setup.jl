@@ -1,13 +1,13 @@
+using Test
+import IMAS
+import TorJ
+import Artifacts
+import Pkg
+using JSON
 
 # Only run preprocessing if it hasn't been done already
 if !@isdefined(TEST_DATA_LOADED)
-    using Test
-    import IMAS
-    import TorJ
-    import Artifacts
-    import Pkg
-    using JSON
-    
+
     Pkg.ensure_artifact_installed("data", "Artifacts.toml")
     artifact_path = Artifacts.artifact"data"
 
