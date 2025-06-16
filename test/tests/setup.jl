@@ -33,6 +33,7 @@ if !@isdefined(TEST_DATA_LOADED)
                         (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         profiles_1d.electrons.density,
+                        profiles_1d.electrons.temperature,
                         eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
                         eq_slice.profiles_2d[1].b_field_tor);
 
