@@ -1,7 +1,7 @@
 module TorJ
 
 import Optim
-import Interpolations: CubicSplineInterpolation, Line, Extrapolation, gradient
+import Interpolations: cubic_spline_interpolation, Line, Extrapolation, gradient
 import ForwardDiff
 import LinearAlgebra
 import IMAS

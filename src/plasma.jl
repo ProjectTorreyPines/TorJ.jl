@@ -14,9 +14,9 @@ end
 function make_2d_prof_spline(r_range, z_range, psi, prof, psi_norm_data)
     psi_range = range(psi[1], psi[end], length(psi))
     prof2 = IMAS.interp1d(psi, prof, :cubic).(psi_range)
-    prof_spline = CubicSplineInterpolation(psi_range, log.(prof2); extrapolation_bc=Line())
+    prof_spline = cubic_spline_interpolation(psi_range, log.(prof2); extrapolation_bc=Line())
     prof_data = reshape(prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
-    return CubicSplineInterpolation((r_range, z_range), prof_data; extrapolation_bc=Line())
+    return cubic_spline_interpolation((r_range, z_range), prof_data; extrapolation_bc=Line())
 end
 
 """
@@ -31,12 +31,12 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     # Interpolation objects
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
-    psi_norm_spline = CubicSplineInterpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Line())
+    psi_norm_spline = cubic_spline_interpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Line())
     ne_spline = make_2d_prof_spline(r_range, z_range, psi_prof, ne_prof, psi_norm_data)
     Te_spline = make_2d_prof_spline(r_range, z_range, psi_prof, Te_prof, psi_norm_data)
-    Br_spline = CubicSplineInterpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
-    Bz_spline = CubicSplineInterpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
-    Bϕ_spline = CubicSplineInterpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
+    Br_spline = cubic_spline_interpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
+    Bz_spline = cubic_spline_interpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
+    Bϕ_spline = cubic_spline_interpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
 
 
     return Plasma(
