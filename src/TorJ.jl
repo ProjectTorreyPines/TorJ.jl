@@ -10,6 +10,10 @@ using NLsolve
 using Roots
 using SpecialFunctions: sphericalbesselj
 
+# Module-level constants (equivalent to Fortran parameters)
+
+
+include("constants.jl")
 
 include("plasma.jl")
 
@@ -18,6 +22,5 @@ include("dispersion.jl")
 include("solve.jl")
 
 include("absorption.jl")
-import .absorption: set_extv!, α
 
 end # module TorJ

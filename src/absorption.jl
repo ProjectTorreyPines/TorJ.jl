@@ -1,27 +1,14 @@
 
-module absorption
-
-# Module-level constants (equivalent to Fortran parameters)
-const π_sqrt = 1.7724538509055160272981674833411
-const ui = 1.0im
-const ntv = 501
-const tmax = 5.0
-const dt = 2.0 * tmax / (ntv - 1)
-
-# Module-level variables (equivalent to Fortran save variables)
-ttv = Vector{Float64}(undef, ntv)
-extdtv = Vector{Float64}(undef, ntv)
-
 """
     set_extv!()
 
-Initialize the ttv and extdtv arrays.
+Initialize the _ttv and _extdtv arrays.
 """
 
 function set_extv!()
     for i in 1:ntv
-        ttv[i] = -tmax + (i - 1) * dt
-        extdtv[i] = exp(-ttv[i]^2) * dt
+        _ttv[i] = -tmax + (i - 1) * dt
+        _extdtv[i] = exp(-_ttv[i]^2) * dt
     end
 end
 
@@ -495,7 +482,7 @@ function fsup(yg::Float64, anpl::Float64, amu::Float64, lrm::Int)
         if alpha > 0
             cf12 = -(czp + czm) / (2.0 * phim)
         elseif alpha < 0
-            cf12 = -ui * (czp + czm) / (2.0 * phim)
+            cf12 = -1.0im * (czp + czm) / (2.0 * phim)
         else
             cf12 = ComplexF64(0.0, 0.0)
         end
@@ -505,7 +492,7 @@ function fsup(yg::Float64, anpl::Float64, amu::Float64, lrm::Int)
         else
             cphi = phim
             if alpha < 0
-                cphi = -ui * phim
+                cphi = -1.0im * phim
             end
             cz0 = zetac(x0, y0)
             cdz0 = 2.0 * (1.0 - cphi * cz0)
@@ -599,10 +586,10 @@ function dieltens_maxw_wr(xg::Float64, yg::Float64, anpl::Float64, amu::Float64,
         end
         
         epsl[1, 1, l] = -xg * ca11 * fcl
-        epsl[1, 2, l] = ui * xg * ca12 * fcl
+        epsl[1, 2, l] = 1.0im * xg * ca12 * fcl
         epsl[2, 2, l] = -xg * ca22 * fcl
         epsl[1, 3, l] = -xg * ca13 * fcl
-        epsl[2, 3, l] = -ui * xg * ca23 * fcl
+        epsl[2, 3, l] = -1.0im * xg * ca23 * fcl
         epsl[3, 3, l] = -xg * ca33 * fcl
     end
     
@@ -655,13 +642,13 @@ function hermitian(yg::Float64, anpl::Float64, amu::Float64, lrm::Int, iwarm::In
     end
     
     for i in 1:ntv
-        t = ttv[i]
+        t = _ttv[i]
         rxt = sqrt(1.0 + t*t/(2.0*amu))
         x = t*rxt
         upl2 = bth2*x^2
         upl = bth*x
         gx = 1.0 + t*t/amu
-        exdx = cr*extdtv[i]*gx/rxt
+        exdx = cr*_extdtv[i]*gx/rxt
         
         for n in n1:llm
             nn = abs(n)
@@ -946,10 +933,10 @@ function dieltens_maxw_fr(xg::Float64, yg::Float64, anpl::Float64, amu::Float64,
         end
         
         epsl[1, 1, l] = -xg * ca11 * fal
-        epsl[1, 2, l] = ui * xg * ca12 * fal
+        epsl[1, 2, l] = 1.0im * xg * ca12 * fal
         epsl[2, 2, l] = -xg * ca22 * fal
         epsl[1, 3, l] = -xg * ca13 * fal
-        epsl[2, 3, l] = -ui * xg * ca23 * fal
+        epsl[2, 3, l] = -1.0im * xg * ca23 * fal
         epsl[3, 3, l] = -xg * ca33 * fal
     end
     
@@ -1174,6 +1161,4 @@ function α(X::Real, Y::Real, N_r::Real, theta::Real, te:: Real, v_g_perp:: Real
     lrm = min(i_max, nharm)
     N_perp_cmplx = warmdisp(X, Y, N_par, mu, imod, fast, lrm, Npr)[1]
     return 2.e0 * imag(N_perp_cmplx^2) * omega / c0 * v_g_perp
-end
-
 end
