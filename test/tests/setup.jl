@@ -1,6 +1,6 @@
 using Test
-import TorJ: IMAS
 import TorJ
+import TorJ: IMAS
 import Artifacts
 import Pkg
 import JSON
@@ -29,7 +29,7 @@ if !@isdefined(TEST_DATA_LOADED)
     ecrad_ref["R"] = Vector{Float64}(ecrad_ref["R"])
     ecrad_ref["z"] = Vector{Float64}(ecrad_ref["z"])
 
-    plasma = TorJ.Plasma(R_grid, z_grid, 
+    plasma = TorJ.Plasma(R_grid, z_grid,
                         (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         profiles_1d.electrons.density,
