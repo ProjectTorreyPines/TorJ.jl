@@ -3,7 +3,7 @@ import IMAS
 import TorJ
 import Artifacts
 import Pkg
-using JSON
+import JSON
 
 # Only run preprocessing if it hasn't been done already
 if !@isdefined(TEST_DATA_LOADED)
