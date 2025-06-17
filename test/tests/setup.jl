@@ -1,5 +1,5 @@
 using Test
-import IMAS
+import TorJ: IMAS
 import TorJ
 import Artifacts
 import Pkg

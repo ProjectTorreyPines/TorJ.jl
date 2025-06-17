@@ -1156,7 +1156,7 @@ end
 function α(X::Real, Y::Real, N_r::Real, theta::Real, te:: Real, v_g_perp:: Real, imod:: Integer)
     N_par = Nr * cos(theta)
     Npr = sqrt(N_r^2 - N_par^2)
-    mu = constants.m_e * constants.c^2/(te * e0)
+    mu = constants.m_e * constants.c^2/(te * constants.e)
     nharm = larmornumber(Y, Nll, mu)
     lrm = min(i_max, nharm)
     N_perp_cmplx = warmdisp(X, Y, N_par, mu, imod, fast, lrm, Npr)[1]
