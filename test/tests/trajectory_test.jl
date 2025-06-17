@@ -3,7 +3,7 @@ include("setup.jl")
 @testset "Trajectory parameters test" begin
 
     for i in 1:length(ecrad_ref["x"])
-        x = [ecrad_ref["x"][i] ecrad_ref["y"][i]; ecrad_ref["z"][i]]
+        x = [ecrad_ref["x"][i], ecrad_ref["y"][i], ecrad_ref["z"][i]]
         N = [ecrad_ref["Nx"][i], ecrad_ref["Ny"][i], ecrad_ref["Nz"][i]]
         B_test = TorJ.B_spline(plasma,x)
         B_diff = B_test .- [ecrad_ref["Bx"][i], ecrad_ref["By"][i], ecrad_ref["Bz"][i]]

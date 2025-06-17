@@ -1154,7 +1154,7 @@ function larmornumber(yg::Float64, npl::Float64, mu::Float64)
 end
 
 function α(X::Real, Y::Real, N_r::Real, theta::Real, te:: Real, v_g_perp:: Real, imod:: Integer)
-    N_par = Nr * cos(theta)
+    N_par = N_r * cos(theta)
     Npr = sqrt(N_r^2 - N_par^2)
     mu = constants.m_e * constants.c^2/(te * constants.e)
     nharm = larmornumber(Y, Nll, mu)
