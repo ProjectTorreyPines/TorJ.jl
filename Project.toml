@@ -5,6 +5,7 @@ version = "0.2.0"
 
 [deps]
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 IMAS = "13ead8c1-b7d1-41bb-a6d0-5b8b65ed587a"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -25,4 +26,5 @@ solve_ext = "Enzyme"
 [compat]
 Enzyme = "0.13.44"
 EnzymeCore = "0.8.8"
+FastGaussQuadrature = "1.0.2"
 SpecialFunctions = "2.5.1"

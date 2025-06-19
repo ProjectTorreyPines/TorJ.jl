@@ -1,8 +1,12 @@
 const ntv = 501
 const tmax = 5.0
 const dt = 2.0 * tmax / (ntv - 1)
+const i_max = 5 
 
 # Module-level variables (equivalent to Fortran save variables)
+_int_weights = Float64[]
+_int_absz = Float64[]
+
 _ttv = Vector{Float64}(undef, ntv)
 _extdtv = Vector{Float64}(undef, ntv)
 
