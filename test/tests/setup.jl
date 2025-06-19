@@ -15,7 +15,7 @@ if !@isdefined(TEST_DATA_LOADED)
         JSON.parse(IOBuffer(read(io)))
     end
 
-    ecrad_ref_abs = open(artifact_path * "/data/ECRad_params.json", "r") do io
+    ecrad_ref_abs = open(artifact_path * "/data/ECRad_params_2.json", "r") do io
         JSON.parse(IOBuffer(read(io)))
     end
 
@@ -42,7 +42,7 @@ if !@isdefined(TEST_DATA_LOADED)
                         eq_slice.profiles_2d[1].b_field_tor);
 
     freq = 85.5E9
-    freq_abs_test = 92.5
+    freq_abs_test = 92.5E9
     x0 = 2.5
     y0 = 0.0
     z0 = 0.4

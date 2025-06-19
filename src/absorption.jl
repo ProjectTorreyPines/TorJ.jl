@@ -1,11 +1,10 @@
 function abs_Al_init(N_absz::Int)
-    using FastGaussQuadrature
     # Get Gauss-Legendre quadrature points and weights on [-1, 1]
+    global _int_weights, _int_absz
     _int_absz, _int_weights = gausslegendre(N_absz)
     _int_absz = Vector{Float64}(_int_absz)
     _int_weights = Vector{Float64}(_int_weights)
 end
-
 
 
 function abs_Al_N_with_pol_vec(X::Float64, Y::Float64, cos_theta::Float64, sin_theta::Float64, mode::Int)
@@ -63,7 +62,7 @@ function abs_Al_N_with_pol_vec(X::Float64, Y::Float64, cos_theta::Float64, sin_t
     return N, e
 end
 
-function get_upper_limit_tau(mu::Float64, X::Float64, Y::Float64, Te::Float64, N_par::Float64, omega::Float64, ds::Float64)
+function get_upper_limit_tau(mu::Float64, Y::Float64, N_par::Float64, omega::Float64, ds::Float64)
     omega_bar = 1.0 / Y
     m_max = 3
     f_sum = 0.0
@@ -130,7 +129,7 @@ end
 
 
 function abs_Al_pol_fact(t::Vector{Float64}, omega_bar::Float64, m_0::Float64, 
-                         N_abs::Float64, cos_theta::Float64, sin_theta::Float64, e::Vector{ComplexF64}, m::Int)
+                         N_abs::Float64, cos_theta::Float64, e::Vector{ComplexF64}, m::Int)
     
     N_par = N_abs * cos_theta
     N_perp = sqrt(N_abs^2 - N_par^2)
@@ -169,8 +168,8 @@ function abs_Al_pol_fact(t::Vector{Float64}, omega_bar::Float64, m_0::Float64,
     return pol_fact
 end
 
-function abs_Al_integral_nume_fast(mu::Float64, X::Float64, Y::Float64, omega_bar::Float64, m_0::Float64, 
-                                   N_abs::Float64, cos_theta::Float64, sin_theta::Float64, e::Vector{ComplexF64}, m::Int)
+function abs_Al_integral_nume_fast(mu::Float64, omega_bar::Float64, m_0::Float64, 
+                                   N_abs::Float64, cos_theta::Float64, e::Vector{ComplexF64}, m::Int)
     
     N_par = N_abs * cos_theta
     
@@ -179,7 +178,7 @@ function abs_Al_integral_nume_fast(mu::Float64, X::Float64, Y::Float64, omega_ba
     u_perp_sq = ((Float64(m) / m_0)^2 - 1.0) .* (1.0 .- _int_absz.^2)
     gamma = sqrt.(1.0 .+ u_par.^2 .+ u_perp_sq)
     
-    pol_fact = abs_Al_pol_fact(_int_absz, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, m)
+    pol_fact = abs_Al_pol_fact(_int_absz, omega_bar, m_0, N_abs, cos_theta, e, m)
     
     c_abs_int = _int_weights .* pol_fact .* (-mu) .* exp.(mu .* (1.0 .- gamma))
     c_abs = sum(c_abs_int)
@@ -190,7 +189,7 @@ function abs_Al_integral_nume_fast(mu::Float64, X::Float64, Y::Float64, omega_ba
     return c_abs
 end
 
-function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, N_r::Float64, theta::Float64, 
+function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, theta::Float64, 
                           Te::Float64, mode::Int, ds::Float64)
     
     if Te < 20.0
@@ -211,11 +210,12 @@ function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, N_r::Float64, 
     end
     
     N_par = cos_theta * N_abs
-    tau_upper_limit = get_upper_limit_tau(mu, X, Y, Te, N_par, omega, ds)
+    # tau_upper_limit = get_upper_limit_tau(mu, Y, N_par, omega, ds)
     
-    if tau_upper_limit < 1e-8
-        return 0.0
-    end
+    # if tau_upper_limit < 1e-8
+    #     println("Absorption too low ignoring: $tau_upper_limit")
+    #     return 0.0
+    # end
     
     m_0 = sqrt(1.0 - N_par^2) * omega_bar
     
@@ -224,7 +224,7 @@ function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, N_r::Float64, 
             continue
         end
         
-        c_abs_m = abs_Al_integral_nume_fast(mu, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e_pol, m_sum)
+        c_abs_m = abs_Al_integral_nume_fast(mu, omega_bar, m_0, N_abs, cos_theta, e_pol, m_sum)
         c_abs += sqrt((Float64(m_sum) / m_0)^2 - 1.0) * c_abs_m
     end
     

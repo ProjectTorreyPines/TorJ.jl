@@ -8,7 +8,7 @@ import IMAS
 using DifferentialEquations
 using NLsolve
 using Roots
-using SpecialFunctions: sphericalbesselj
+using SpecialFunctions: besselj
 using FastGaussQuadrature
 
 # Module-level constants (equivalent to Fortran parameters)
