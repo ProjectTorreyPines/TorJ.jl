@@ -94,32 +94,52 @@ function gradΛ!(du::AbstractVector{<:Real}, u::AbstractVector{<:Real}, plasma::
     du[7] = -u[7] * α_approx(u[1:3], u[4:6], plasma, ω, mode)
 end    
 
-# Define the system of ODEs: du/ds = f(u, s)
+"""
+    sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
+
+System of ODEs for ray tracing with absorption.
+Defines du/ds = f(u, s) where u = [x, N, P] contains position, refractive index vector, and power.
+
+# Arguments
+- `du`: Derivative vector [dx/ds, dN/ds, dP/ds]
+- `u`: State vector [x, N, P] (position, refractive index, power)
+- `p`: Parameters (unused)
+- `s`: Arclength parameter
+- `plasma`: Plasma configuration
+- `ω`: Angular frequency
+- `mode`: Polarization mode (+1 for X-mode, -1 for O-mode)
+"""
 function sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
     gradΛ!(du, u, plasma, ω, mode)
 end
 
 """
-    make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+    make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
 
-Launch the ray in a given Plasma and ray trajectory.
-mode: +1 X-mode, -1 O-mode
+Launch a single ray through the plasma and compute its trajectory with absorption.
+
+# Arguments
+- `plasma`: Plasma configuration containing density, temperature, and magnetic field
+- `x0`: Initial position in vacuum [x, y, z] (meters)
+- `N_vacuum`: Initial refractive index vector in vacuum
+- `freq`: Wave frequency (Hz)
+- `mode`: Polarization mode (+1 for X-mode, -1 for O-mode)
+- `s_max`: Maximum integration distance (meters)
+
+# Returns
+- `s`: Arclength array along the trajectory
+- `u`: Position trajectory as vector of 3D points
+- `P_beam`: Beam power along the trajectory
 """
 function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
-    # println(N_vacuum)
     p_plasma = first_point(plasma, x0, N_vacuum)
-    # Make sure we are on the grid and within the bounds of the profiles for the first step
     @assert evaluate(plasma.psi_norm_spline, p_plasma) <= plasma.psi_prof_max
 
     N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *freq, mode)
-    # println(N_plasma)
     @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
 
-    u0 = [p_plasma; N_plasma; 1.0] # concatenate for the solver x0, N0, and the initial power
-    # Compute ∂Λ/∂x and ∂Λ/∂N
-
-    # Initial condition u₀ = [x₀, N₀] that satisfies Λ(x₀, N₀) ≈ 0
-    # Solve the ODE
+    # Initial condition: [position, refractive_index, power]
+    u0 = [p_plasma; N_plasma; 1.0]
     N_steps = 100
     s_step = s_max / Float64(N_steps)
     # We will add the arc_length for the step in vacuum in the end
@@ -162,7 +182,30 @@ function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVec
     return s, u, P_beam
 end
 
+"""
+    make_beam(plasma, r, phi, z, steering_angle_tor, steering_angle_pol, spot_size, inverse_curvature_radius, freq, mode, s_max)
 
+Launch multiple rays forming a beam and compute their trajectories with absorption in parallel using Dagger.
+
+# Arguments
+- `plasma`: Plasma configuration containing density, temperature, and magnetic field
+- `r`: Radial distance of beam center (meters)
+- `phi`: Toroidal angle of beam center (radians)
+- `z`: Vertical position of beam center (meters)
+- `steering_angle_tor`: Toroidal steering angle (radians)
+- `steering_angle_pol`: Poloidal steering angle (radians)
+- `spot_size`: Beam spot size parameter (meters)
+- `inverse_curvature_radius`: Inverse radius of curvature (1/meters)
+- `freq`: Wave frequency (Hz)
+- `mode`: Polarization mode (+1 for X-mode, -1 for O-mode)
+- `s_max`: Maximum integration distance (meters)
+
+# Returns
+- `arc_lengths`: Vector of arclength arrays (one per ray)
+- `trajectories`: Vector of trajectory arrays (one per ray)  
+- `ray_powers`: Vector of beam power arrays (one per ray)
+- `ray_weights`: Ray weights for beam integration
+"""
 function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, steering_angle_pol::T, spot_size::T, 
                    inverse_curvature_radius::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
     N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))
@@ -172,14 +215,12 @@ function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, st
     x0[3] = z
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
         x0, N0, spot_size, 3, inverse_curvature_radius, freq)
-    # Create Dagger tasks for parallel ray tracing (order preserved)
-    println("Creating $(length(ray_weights)) Dagger tasks for parallel ray tracing...")
     
+    println("Creating $(length(ray_weights)) Dagger tasks for parallel ray tracing...")
     ray_tasks = [Dagger.@spawn make_ray(plasma, ray_positions[i,:], ray_directions[i,:], freq, mode, s_max) 
                  for i in 1:length(ray_weights)]
     
-    # Collect results from parallel tasks in original order
-    # This ensures all arrays[i] correspond to ray_weights[i]
+    # Collect results preserving order (ensures correspondence with ray_weights)
     ray_results = [fetch(ray_tasks[i]) for i in 1:length(ray_tasks)]
     
     # Separate the three return values

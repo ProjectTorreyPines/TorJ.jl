@@ -87,12 +87,15 @@ function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, kwargs...)
 end
 
 """
-    plot_beam_trajectories_3d(trajectories, weights; kwargs...)
+    plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weights; kwargs...)
 
 Plot beam trajectories in 3D with color coding based on ray weights.
+Automatically resamples trajectories to 0.01 m resolution for optimal visualization.
 
 # Arguments
-- `trajectories`: Vector of ray trajectory data from make_beam
+- `arc_lengths`: Vector of arclength arrays (one per ray) from make_beam
+- `trajectories`: Vector of trajectory arrays (one per ray) from make_beam  
+- `ray_powers`: Vector of beam power arrays (one per ray) from make_beam
 - `weights`: Ray weights corresponding to each trajectory
 - `kwargs...`: Additional arguments passed to plot
 
@@ -118,26 +121,24 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
         println("Ray $(i): $(length(ray_trajectory)) points before resampling")
         
         if length(ray_trajectory) < 2 || length(arc_length) < 2
-            # Handle edge case of very short trajectories
             push!(resampled_trajectories, ray_trajectory)
             total_points_after += length(ray_trajectory)
             println("Ray $(i): $(length(ray_trajectory)) points after resampling (too short to resample)")
             continue
         end
         
-        # Create interpolation functions for x, y, z coordinates
+        # Extract coordinates from trajectory points
         ray_x = [point[1] for point in ray_trajectory]
         ray_y = [point[2] for point in ray_trajectory]  
         ray_z = [point[3] for point in ray_trajectory]
         
-        # Create new arclength grid with target spacing
+        # Create uniform arclength grid with target spacing
         s_min = arc_length[1]
         s_max = arc_length[end]
         n_new_points = max(2, Int(ceil((s_max - s_min) / ds_target)) + 1)
         s_new = range(s_min, s_max, length=n_new_points)
         
-        # Interpolate coordinates
-        println(arc_length)
+        # Create linear interpolation functions
         interp_x = Interpolations.linear_interpolation(arc_length, ray_x)
         interp_y = Interpolations.linear_interpolation(arc_length, ray_y)
         interp_z = Interpolations.linear_interpolation(arc_length, ray_z)
@@ -163,19 +164,15 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
                title="Beam Trajectories with Weight Color Coding",
                legend=false, dpi=300; kwargs...)
     
-    # Plot each resampled trajectory
+    # Plot resampled trajectories with weight-based coloring
     for i in 1:length(weights)
         println("Initial vs. final beam power: $(ray_powers[i][1]) $(ray_powers[i][end])")
         
-        # Use resampled trajectory
         ray_trajectory = resampled_trajectories[i]
-        
-        # Extract coordinates from resampled trajectory points
         ray_x = [point[1] for point in ray_trajectory]
         ray_y = [point[2] for point in ray_trajectory]  
         ray_z = [point[3] for point in ray_trajectory]
         
-        # Color based on normalized weight
         plot3d!(p, ray_x, ray_y, ray_z,
                color=:viridis, line_z=fill(normalized_weights[i], length(ray_x)),
                linewidth=2, alpha=alpha_values[i], label="")
