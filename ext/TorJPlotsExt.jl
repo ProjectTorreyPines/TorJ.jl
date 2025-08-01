@@ -100,13 +100,8 @@ Plot beam trajectories in 3D with color coding based on ray weights.
 - Plots.jl 3D plot object
 """
 function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weights; kwargs...)
-    # Use PyPlot backend for better window display
-    pyplot()
     
     # Create the 3D plot
-    p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
-               title="Beam Trajectories with Weight Color Coding",
-               legend=false, dpi=300, aspect_ratio=:equal; kwargs...)
     println("Got $(length(weights)) rays")
     total_points_before = sum(length(ray_trajectory) for ray_trajectory in trajectories)
     println("Total trajectory points before resampling: $(total_points_before)")
@@ -161,6 +156,13 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
     min_weight, max_weight = extrema(weights)
     normalized_weights = (weights .- min_weight) ./ (max_weight - min_weight)
     alpha_values = 0.05 .+ 0.95 .* normalized_weights  # Scale to 0.1-1.0 range
+    # Use PyPlot backend for better window display
+    pyplot()
+
+    p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
+               title="Beam Trajectories with Weight Color Coding",
+               legend=false, dpi=300, 
+               camera=(45, 30); kwargs...)
     
     # Plot each resampled trajectory
     for i in 1:length(weights)
@@ -183,7 +185,10 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
     # Add colorbar
     scatter3d!(p, [0], [0], [0], zcolor=[0], c=:viridis, 
               markersize=0, markerstrokewidth=0, colorbar_title="Ray Weight")
-    
+    # Manually set limits because `aspect_ratio=:equal` does not work`
+    xlims!(p, 1.5, 2.5)
+    ylims!(p, -0.5, 0.5)
+    zlims!(p, -0.5, 0.5)
     # Display the plot
     display(p)
     
