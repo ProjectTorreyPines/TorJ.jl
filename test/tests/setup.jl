@@ -49,7 +49,7 @@ if !@isdefined(TEST_DATA_LOADED)
     z0 = 0.4
     spot_size = 0.0174  # beam width parameter
     inverse_curvature_radius = 1.0/3.99
-    α = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
-    β = 0.0
+    steering_angle_pol = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
+    steering_angle_tor = 0.0
     global TEST_DATA_LOADED = true
 end

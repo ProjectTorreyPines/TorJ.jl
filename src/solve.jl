@@ -72,6 +72,15 @@ function vacuum_plasma_refraction(plasma::Plasma, p_plasma::AbstractVector{T},
                              x0, autodiff = :forward; ftol = 1.e-12)
     return solver_results.zero
 end
+"""
+Simple routine that enforces non-negativity for the power
+"""
+function affect!(integrator)
+    # Project only specific components to zero
+    if integrator.u[7] < 0
+        integrator.u[7] = 0.0
+    end
+end
 
 function gradΛ!(du::AbstractVector{<:Real}, u::AbstractVector{<:Real}, plasma::Plasma, ω::Real, mode::Integer)
     # Struggling to get rid of this allocation.
@@ -80,8 +89,9 @@ function gradΛ!(du::AbstractVector{<:Real}, u::AbstractVector{<:Real}, plasma::
     ForwardDiff.gradient!(@view(du[4:6]), x -> dispersion_relation(x, u[4:6], plasma, ω, mode), u[1:3])
     ForwardDiff.gradient!(@view(du[1:3]), N -> dispersion_relation(u[1:3], N, plasma, ω, mode), u[4:6])
     norm_∂Λ_∂N = LinearAlgebra.norm(du[1:3])
-    du ./= norm_∂Λ_∂N
+    du[1:6] ./= norm_∂Λ_∂N
     du[4:6] .= -du[4:6]
+    du[7] = -u[7] * α_approx(u[1:3], u[4:6], plasma, ω, mode)
 end    
 
 # Define the system of ODEs: du/ds = f(u, s)
@@ -105,22 +115,35 @@ function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVec
     # println(N_plasma)
     @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
 
-    u0 = [p_plasma; N_plasma] # concatenate for the solver
+    u0 = [p_plasma; N_plasma; 1.0] # concatenate for the solver x0, N0, and the initial power
     # Compute ∂Λ/∂x and ∂Λ/∂N
 
     # Initial condition u₀ = [x₀, N₀] that satisfies Λ(x₀, N₀) ≈ 0
     # Solve the ODE
     N_steps = 100
     s_step = s_max / Float64(N_steps)
+    # We will add the arc_length for the step in vacuum in the end
+    s = vec([0.0, 0.0])
+    P_beam = vec([1.0, 1.0])
     # Add the first two points
     u = vec([vec(x0), p_plasma])
     for i in 1:N_steps
         prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
                           (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen3(); 
                           dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
-        sol = solve(prob)
+        # Ensure that the power does not oscillate around 0.0
+        condition(u, t, integrator) = u[7] < 0
+        cb = ContinuousCallback(condition, affect!)
+        sol = solve(prob, callback=cb)
         u0 = sol.u[end]
-        append!(u, sol.u)
+        append!(s, sol.t[2:end])
+        # Extract position vectors (first 3 components) from each solution step
+        # Discard the first step which is a repetition
+        for solution_step in sol.u[2:end]
+            push!(u, solution_step[1:3])  # Only store position, not direction
+            push!(P_beam, solution_step[7])
+        end
+        # Extract power values (7th component) from each solution step
         if evaluate(plasma.psi_norm_spline, u0[1:3]) > 1.0 break end
         # X, Y, N_par, b = eval_plasma(plasma, u0[1:3], u0[4:6], 2.0 * pi *freq)
         # R = hypot(u0[1], u0[2])
@@ -134,7 +157,9 @@ function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVec
         # error = dispersion_relation(u0, plasma, 2.0 * pi *freq, mode)
         # println("$R, $X, $Y, $N_par, $N_s, $error")
     end
-    return u
+    # Finally add the offset from the vacuum step
+    s[2:end] .+= LinearAlgebra.norm(p_plasma .- x0)
+    return s, u, P_beam
 end
 
 
@@ -147,10 +172,20 @@ function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, st
     x0[3] = z
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
         x0, N0, spot_size, 3, inverse_curvature_radius, freq)
-    trajectories = Vector{Vector{Vector{Float64}}}()
-    for i in 1:length(ray_weights)
-        u = make_ray(plasma, ray_positions[i,:], ray_directions[i,:], freq, mode, s_max)
-        push!(trajectories, u)
-    end
-    return trajectories, ray_weights 
+    # Create Dagger tasks for parallel ray tracing (order preserved)
+    println("Creating $(length(ray_weights)) Dagger tasks for parallel ray tracing...")
+    
+    ray_tasks = [Dagger.@spawn make_ray(plasma, ray_positions[i,:], ray_directions[i,:], freq, mode, s_max) 
+                 for i in 1:length(ray_weights)]
+    
+    # Collect results from parallel tasks in original order
+    # This ensures all arrays[i] correspond to ray_weights[i]
+    ray_results = [fetch(ray_tasks[i]) for i in 1:length(ray_tasks)]
+    
+    # Separate the three return values
+    arc_lengths = [result[1] for result in ray_results]
+    trajectories = [result[2] for result in ray_results]
+    ray_powers = [result[3] for result in ray_results]
+    
+    return arc_lengths, trajectories, ray_powers, ray_weights 
 end

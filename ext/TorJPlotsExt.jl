@@ -5,6 +5,7 @@ using Plots
 using PyPlot
 using TorJ: LinearAlgebra
 using TorJ: IMAS
+using Interpolations
 
 """
     plot_peripheral_rays_3d(; N_rings=5, N_azimuthal_outer=8, ray_length=1.0, kwargs...)
@@ -23,9 +24,9 @@ Generate 3D plot of peripheral rays with weights indicated by color.
 function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, kwargs...)
     # Parameters from setup.jl and user specification
     x0 = [2.5, 0.0, 0.4]
-    α = deg2rad(30.0) 
-    β = 0.0               # Radial injection
-    N0 = collect(IMAS.pol_tor_angles_2_vector(α, β))  # Direction vector
+    steering_angle_pol = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
+    steering_angle_tor = 0.0  # Radial injection
+    N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))  # Direction vector
     w = 0.0174            # Beam width parameter
     inverse_curvature_radius = 1.0/3.99  # Curvature parameter
     freq = 110.0e9         # Frequency
@@ -98,7 +99,7 @@ Plot beam trajectories in 3D with color coding based on ray weights.
 # Returns
 - Plots.jl 3D plot object
 """
-function plot_beam_trajectories_3d(trajectories, weights; kwargs...)
+function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weights; kwargs...)
     # Use PyPlot backend for better window display
     pyplot()
     
@@ -107,22 +108,73 @@ function plot_beam_trajectories_3d(trajectories, weights; kwargs...)
                title="Beam Trajectories with Weight Color Coding",
                legend=false, dpi=300, aspect_ratio=:equal; kwargs...)
     println("Got $(length(weights)) rays")
+    total_points_before = sum(length(ray_trajectory) for ray_trajectory in trajectories)
+    println("Total trajectory points before resampling: $(total_points_before)")
+    
+    # Resample trajectories to 0.01 m resolution
+    ds_target = 0.01  # Target spacing in meters
+    resampled_trajectories = []
+    total_points_after = 0
+    
+    for i in 1:length(weights)
+        arc_length = arc_lengths[i]
+        ray_trajectory = trajectories[i]
+        
+        println("Ray $(i): $(length(ray_trajectory)) points before resampling")
+        
+        if length(ray_trajectory) < 2 || length(arc_length) < 2
+            # Handle edge case of very short trajectories
+            push!(resampled_trajectories, ray_trajectory)
+            total_points_after += length(ray_trajectory)
+            println("Ray $(i): $(length(ray_trajectory)) points after resampling (too short to resample)")
+            continue
+        end
+        
+        # Create interpolation functions for x, y, z coordinates
+        ray_x = [point[1] for point in ray_trajectory]
+        ray_y = [point[2] for point in ray_trajectory]  
+        ray_z = [point[3] for point in ray_trajectory]
+        
+        # Create new arclength grid with target spacing
+        s_min = arc_length[1]
+        s_max = arc_length[end]
+        n_new_points = max(2, Int(ceil((s_max - s_min) / ds_target)) + 1)
+        s_new = range(s_min, s_max, length=n_new_points)
+        
+        # Interpolate coordinates
+        println(arc_length)
+        interp_x = Interpolations.linear_interpolation(arc_length, ray_x)
+        interp_y = Interpolations.linear_interpolation(arc_length, ray_y)
+        interp_z = Interpolations.linear_interpolation(arc_length, ray_z)
+        
+        # Generate resampled trajectory
+        resampled_trajectory = [[interp_x(s), interp_y(s), interp_z(s)] for s in s_new]
+        push!(resampled_trajectories, resampled_trajectory)
+        
+        total_points_after += length(resampled_trajectory)
+        println("Ray $(i): $(length(resampled_trajectory)) points after resampling")
+    end
+    
+    println("Total trajectory points after resampling: $(total_points_after)")
+    
     # Normalize weights for color mapping
     min_weight, max_weight = extrema(weights)
     normalized_weights = (weights .- min_weight) ./ (max_weight - min_weight)
     alpha_values = 0.05 .+ 0.95 .* normalized_weights  # Scale to 0.1-1.0 range
-    # Plot each trajectory
+    
+    # Plot each resampled trajectory
     for i in 1:length(weights)
-        # Now trajectories is a Vector of Vectors, so trajectories[i] is one ray's trajectory
-        ray_trajectory = trajectories[i]
+        println("Initial vs. final beam power: $(ray_powers[i][1]) $(ray_powers[i][end])")
         
-        # Extract coordinates from this ray's trajectory points
+        # Use resampled trajectory
+        ray_trajectory = resampled_trajectories[i]
+        
+        # Extract coordinates from resampled trajectory points
         ray_x = [point[1] for point in ray_trajectory]
         ray_y = [point[2] for point in ray_trajectory]  
         ray_z = [point[3] for point in ray_trajectory]
         
         # Color based on normalized weight
-        
         plot3d!(p, ray_x, ray_y, ray_z,
                color=:viridis, line_z=fill(normalized_weights[i], length(ray_x)),
                linewidth=2, alpha=alpha_values[i], label="")
@@ -152,14 +204,15 @@ Create and plot beam trajectories using parameters from setup.jl.
 """
 function plot_beam_from_setup(; s_max=0.4, kwargs...)
     # Import setup parameters (similar to test_make_beam.jl)
-    include("../test/tests/setup.jl")
+    include(joinpath(@__DIR__, "../test/tests/setup.jl"))
     
     # Generate beam trajectories using setup parameters
-    trajectories, ray_weights = TorJ.make_beam(plasma, R0, phi0, z0, β, α, 
-                                              spot_size, inverse_curvature_radius, freq, 1, s_max)
+    arc_lengths, trajectories, ray_powers, ray_weights = TorJ.make_beam(plasma, R0, phi0, z0, steering_angle_tor,
+                                               steering_angle_pol, spot_size, 
+                                               inverse_curvature_radius, freq, 1, s_max)
     
     # Call the main plotting function
-    return plot_beam_trajectories_3d(trajectories, ray_weights; kwargs...)
+    return plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, ray_weights; kwargs...)
 end
 
 end # module TorJPlotsExt

@@ -190,7 +190,7 @@ function abs_Al_integral_nume_fast(mu::Float64, omega_bar::Float64, m_0::Float64
 end
 
 function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, theta::Float64, 
-                          Te::Float64, mode::Int, ds::Float64)
+                          Te::Float64, mode::Int)
     
     if Te < 20.0
         return 0.0  # very low Te => absorption can be ignored
@@ -233,4 +233,13 @@ function abs_Albajar_fast(omega::Float64, X::Float64, Y::Float64, theta::Float64
     c_abs = c_abs * X * omega / (Y * constants.c)  # revert the normalization
     
     return c_abs
+end
+
+function α_approx(x::AbstractVector{<:Real},  N::AbstractVector{<:Real}, plasma::Plasma, 
+                  omega:: Real, mode::Integer)
+    N_abs = LinearAlgebra.norm(N)
+    X, Y, N_par, b = eval_plasma(plasma, x, N, omega)
+    theta = acos(N_par/N_abs)
+    Te = T_e(plasma, x)
+    return abs_Albajar_fast(omega, X, Y, theta, Te, mode)
 end

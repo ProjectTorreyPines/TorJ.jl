@@ -10,6 +10,7 @@ using NLsolve
 using Roots
 using SpecialFunctions: besselj
 using FastGaussQuadrature
+using Dagger
 
 # Module-level constants (equivalent to Fortran parameters)
 

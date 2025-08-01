@@ -12,7 +12,7 @@ include("setup.jl")
             ds = ecrad_ref_abs["s"][i] - ecrad_ref_abs["s"][i-1]
         end
         α[i] = TorJ.abs_Albajar_fast(omega, ecrad_ref_abs["X"][i], ecrad_ref_abs["Y"][i], 
-                                     ecrad_ref_abs["theta"][i], ecrad_ref_abs["Te"][i], 1, abs(ds))
+                                     ecrad_ref_abs["theta"][i], ecrad_ref_abs["Te"][i], 1)
     end
     if !all(isapprox(α, ecrad_ref_abs["ab"];atol=0.1, rtol=1.e-2))
         mask = .!(isapprox(α, ecrad_ref_abs["ab"];atol=0.1, rtol=1.e-2))
