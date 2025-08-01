@@ -45,30 +45,37 @@ function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, kwargs...)
     x_ends = x_origins + ray_length * ray_directions[:, 1]
     y_ends = y_origins + ray_length * ray_directions[:, 2] 
     z_ends = z_origins + ray_length * ray_directions[:, 3]
-    gr()
-    anim = Animation()
-    for angle in range(0, stop = 180, step = 1)
-        # Create 3D plot with rotating camera
-        p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
-                title="Peripheral Rays ($N_rings rings)",
-                legend=:topright, dpi=300; kwargs...)
-        
-        # Plot each ray as a line segment with color based on weight
-        for i in 1:N_rays
-            weight_color = ray_weights[i]
-            plot3d!(p, [x_origins[i], x_ends[i]], [y_origins[i], y_ends[i]], [z_origins[i], z_ends[i]],
-                    color=:viridis, line_z=weight_color, linewidth=2, alpha=0.8, label="")
-        end
-        
-        # Add origin points as scatter
-        scatter3d!(p, x_origins, y_origins, z_origins,
-                zcolor=ray_weights, c=:viridis, markersize=4, markerstrokewidth=0,
-                label="Ray origins", colorbar_title="Ray Weight", camera=(angle, 30))
-        frame(anim, p)
-    end 
     
-    # Display the animation directly
-    anim
+    # Use PyPlot backend for better window display
+    pyplot()
+    
+    # First try a static plot to test if window opens
+    p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
+               title="Peripheral Rays ($N_rings rings)",
+               legend=:topright, dpi=300, aspect_ratio=:equal; kwargs...)
+    
+    # Normalize weights for alpha (0.1 to 1.0 range)
+    min_weight, max_weight = extrema(ray_weights)
+    normalized_weights = (ray_weights .- min_weight) ./ (max_weight - min_weight)
+    alpha_values = 0.05 .+ 0.95 .* normalized_weights  # Scale to 0.1-1.0 range
+    
+    # Plot each ray as a line segment with color and alpha based on weight
+    for i in 1:N_rays
+        weight_color = normalized_weights[i]
+        alpha_val = alpha_values[i]
+        plot3d!(p, [x_origins[i], x_ends[i]], [y_origins[i], y_ends[i]], [z_origins[i], z_ends[i]],
+                color=:viridis, line_z=weight_color, linewidth=2, alpha=alpha_val, label="")
+    end
+    
+    # Add origin points as scatter
+    scatter3d!(p, x_origins, y_origins, z_origins,
+            zcolor=normalized_weights, c=:viridis, markersize=4, markerstrokewidth=0,
+            label="Ray origins", colorbar_title="Ray Weight", camera=(45, 30))
+    
+    # Display the static plot
+    display(p)
+    
+    return p 
     
     # Print statistics
     println("3D Ray Plot Statistics:")
@@ -76,7 +83,6 @@ function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, kwargs...)
     println("Ray weights - Min: $(minimum(ray_weights)), Max: $(maximum(ray_weights))")
     println("Sum of all weights: $(sum(ray_weights))")
     
-    return anim
 end
 
 end # module TorJPlotsExt

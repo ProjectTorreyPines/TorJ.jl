@@ -5,25 +5,24 @@ Launch peripheral rays for geometrical optics raytracing in a circular pattern.
 This function spans a beam perpendicular to the central ray using concentric circles
 to discretize the beam cross-section.
 
-# Arguments
+# Arguments (All use IMAS conventions where applicable)
 - `x0::AbstractVector{T}`: Central ray launch position [x, y, z] in meters
 - `N0::AbstractVector{T}`: Central ray direction vector (normalized)
-- `width::T`: FWHM beam width in meters
+- `w::T`: beam width in meters
+- `inverse_curvature_radius`: Inverse curvature radius of the circular beam at launch
 - `N_rings::Integer`: Number of concentric rings
-- `N_azimuthal_outer::Integer`: Number of azimuthal points on the outermost ring
-- `dist_focus::T`: Distance to focus point in meters
-- `focus_shift::T`: Additional focus shift in meters
-- `one_sigma_width::Bool`: Whether to use one-sigma width Gaussian weights
 - `freq::T`: Frequency in Hz
+- `min_azimuthal_points::Integer`: Minimal number of azimuthal points should be at least 5
 
 # Returns
 - `ray_positions::Vector{Vector{T}}`: Launch positions for all peripheral rays
 - `ray_directions::Vector{Vector{T}}`: Direction vectors for all peripheral rays  
 - `ray_weights::Vector{T}`: Statistical weights for each ray
+- `normalize_weight_sum`: Make sure all weights sum up to one. Should only be false for tests.
 """
 function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T}, 
                                 w::T, N_rings::Integer, inverse_curvature_radius::T,  
-                                f::T, min_azimuthal_points = 5) where {T<:Real}
+                                f::T; min_azimuthal_points = 5, normalize_weight_sum=true) where {T<:Real}
      if N_rings < 2
         throw(ArgumentError("N_rings = $N_rings < 2 which is the minimum"))
     end
@@ -38,7 +37,6 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
         w0 = (λ * abs(R_curv) * w) / sqrt(λ^2 * R_curv^2 + π^2 * w^4)
         # Distance to waist (not the same as curvature radius!). See stackexchange post above
         z_waist = π^2 * R_curv * w^4 /  (λ^2 * R_curv^2 + π^2 * w^4)
-        println("$(w- w0), $z_waist, $(rad2deg(atan((w- w0), z_waist)))")
         # This respects the sign of the curvature radius
         x_waist = x0 .+ n0 .* z_waist
     else
@@ -64,11 +62,12 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
     e_υ ./= LinearAlgebra.norm(e_υ)
     
     # Create points for the integration
-    r_pts, r_weights = (v[N_rings+2:end] for v in FastGaussQuadrature.gausshermite(N_rings*2+1; normalize=true))
+    # Remove the first positive r since it is close to zero
+    r_pts, r_weights = (v[N_rings+2:end] for v in FastGaussQuadrature.gausshermite(N_rings*2+2)) # use even integer
     # Integral from +-∞ with e^(-x^2) -> r = w/√2 * x
     r_pts .*= w/sqrt(2.0)
-    # dr/dx = w / √2 | ∫_0^∞ -> 1/2 ∫_{-∞}^∞   
-    r_weights .*= sqrt(2.0)/ w 
+    # dr/dx = w / √2
+    r_weights .*= w / sqrt(2.0)
     N_θ = zeros(Int64, N_rings)
     N_total_rays = Int64(0)
     # Need a ragged array to store the points and weights
@@ -82,9 +81,9 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
     # Ray index
     k = 0
     for i in 1:N_rings
-        θ_azimuthal, θ_weights = FastGaussQuadrature.gausslegendre(N_θ[i])
-        θ_azimuthal .*= π
-        θ_weights .*= π
+        # Simple trapezoid here since we are almost constant in θ
+        θ_azimuthal = [2π * Float64(l) / Float64(N_θ[i]) for l in 0:(N_θ[i]-1)]
+        θ_weights = fill(2π /Float64(N_θ[i]), N_θ[i])
         for j in 1:N_θ[i]
             # Convert ray position to Tokamak x-y
             # First calculate local χ and υ in the beam reference frame
@@ -114,6 +113,12 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
         end
         k += N_θ[i]
     end
-
+    # Add normalization
+    if normalize_weight_sum
+        ray_weights ./= sum(ray_weights)
+    else
+        ray_weights .*= 2.0 / (w^2* π)
+    end
+    
     return ray_positions, ray_directions, ray_weights
 end
