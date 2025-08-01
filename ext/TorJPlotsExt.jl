@@ -85,4 +85,81 @@ function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, kwargs...)
     
 end
 
+"""
+    plot_beam_trajectories_3d(trajectories, weights; kwargs...)
+
+Plot beam trajectories in 3D with color coding based on ray weights.
+
+# Arguments
+- `trajectories`: Vector of ray trajectory data from make_beam
+- `weights`: Ray weights corresponding to each trajectory
+- `kwargs...`: Additional arguments passed to plot
+
+# Returns
+- Plots.jl 3D plot object
+"""
+function plot_beam_trajectories_3d(trajectories, weights; kwargs...)
+    # Use PyPlot backend for better window display
+    pyplot()
+    
+    # Create the 3D plot
+    p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
+               title="Beam Trajectories with Weight Color Coding",
+               legend=false, dpi=300, aspect_ratio=:equal; kwargs...)
+    println("Got $(length(weights)) rays")
+    # Normalize weights for color mapping
+    min_weight, max_weight = extrema(weights)
+    normalized_weights = (weights .- min_weight) ./ (max_weight - min_weight)
+    alpha_values = 0.05 .+ 0.95 .* normalized_weights  # Scale to 0.1-1.0 range
+    # Plot each trajectory
+    for i in 1:length(weights)
+        # Now trajectories is a Vector of Vectors, so trajectories[i] is one ray's trajectory
+        ray_trajectory = trajectories[i]
+        
+        # Extract coordinates from this ray's trajectory points
+        ray_x = [point[1] for point in ray_trajectory]
+        ray_y = [point[2] for point in ray_trajectory]  
+        ray_z = [point[3] for point in ray_trajectory]
+        
+        # Color based on normalized weight
+        
+        plot3d!(p, ray_x, ray_y, ray_z,
+               color=:viridis, line_z=fill(normalized_weights[i], length(ray_x)),
+               linewidth=2, alpha=alpha_values[i], label="")
+    end
+    
+    # Add colorbar
+    scatter3d!(p, [0], [0], [0], zcolor=[0], c=:viridis, 
+              markersize=0, markerstrokewidth=0, colorbar_title="Ray Weight")
+    
+    # Display the plot
+    display(p)
+    
+    return p
+end
+
+"""
+    plot_beam_from_setup(; s_max=0.4, kwargs...)
+
+Create and plot beam trajectories using parameters from setup.jl.
+
+# Arguments  
+- `s_max`: Maximum integration distance (default: 0.4)
+- `kwargs...`: Additional arguments passed to plot
+
+# Returns
+- Plots.jl 3D plot object
+"""
+function plot_beam_from_setup(; s_max=0.4, kwargs...)
+    # Import setup parameters (similar to test_make_beam.jl)
+    include("../test/tests/setup.jl")
+    
+    # Generate beam trajectories using setup parameters
+    trajectories, ray_weights = TorJ.make_beam(plasma, R0, phi0, z0, β, α, 
+                                              spot_size, inverse_curvature_radius, freq, 1, s_max)
+    
+    # Call the main plotting function
+    return plot_beam_trajectories_3d(trajectories, ray_weights; kwargs...)
+end
+
 end # module TorJPlotsExt

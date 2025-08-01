@@ -90,15 +90,14 @@ function sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
 end
 
 """
-    make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, steering_angle_pol::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+    make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
 
 Launch the ray in a given Plasma and ray trajectory.
 mode: +1 X-mode, -1 O-mode
 """
-function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, steering_angle_pol::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
-    N_vacuum = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol,steering_angle_tor))
+function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
     # println(N_vacuum)
-    p_plasma = first_point(plasma, [x0, y0, z0], N_vacuum)
+    p_plasma = first_point(plasma, x0, N_vacuum)
     # Make sure we are on the grid and within the bounds of the profiles for the first step
     @assert evaluate(plasma.psi_norm_spline, p_plasma) <= plasma.psi_prof_max
 
@@ -114,7 +113,7 @@ function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, st
     N_steps = 100
     s_step = s_max / Float64(N_steps)
     # Add the first two points
-    u = vec([vec([x0, y0, z0]), p_plasma])
+    u = vec([vec(x0), p_plasma])
     for i in 1:N_steps
         prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
                           (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen3(); 
@@ -138,8 +137,20 @@ function make_ray(plasma::Plasma, x0::T, y0::T, z0::T, steering_angle_tor::T, st
     return u
 end
 
-# function out_of_bounds(u, t, integrator)
-#     r = u[1]
-#     z = u[2]
-#     return r < plasma.R_coords[1] || r > plasma.R_coords[end] || z < plasma.Z_coords[1] || z > plasma.Z_coords[end]
-# end
+
+function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, steering_angle_pol::T, spot_size::T, 
+                   inverse_curvature_radius::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+    N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))
+    x0 = zeros(Float64,3)
+    x0[1] = r * cos(phi)
+    x0[2] = r * sin(phi)
+    x0[3] = z
+    ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
+        x0, N0, spot_size, 3, inverse_curvature_radius, freq)
+    trajectories = Vector{Vector{Vector{Float64}}}()
+    for i in 1:length(ray_weights)
+        u = make_ray(plasma, ray_positions[i,:], ray_directions[i,:], freq, mode, s_max)
+        push!(trajectories, u)
+    end
+    return trajectories, ray_weights 
+end

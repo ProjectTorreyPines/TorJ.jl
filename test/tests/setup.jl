@@ -7,8 +7,7 @@ import JSON
 
 # Only run preprocessing if it hasn't been done already
 if !@isdefined(TEST_DATA_LOADED)
-
-    Pkg.ensure_artifact_installed("data", "Artifacts.toml")
+    Pkg.ensure_artifact_installed("data", joinpath(@__DIR__, "..", "Artifacts.toml"))
     artifact_path = Artifacts.artifact"data"
 
     ecrad_ref = open(artifact_path * "/data/ECRad_params.json", "r") do io
@@ -43,9 +42,13 @@ if !@isdefined(TEST_DATA_LOADED)
 
     freq = 85.5E9
     freq_abs_test = 92.5E9
-    x0 = 2.5
-    y0 = 0.0
+    R0 = 2.5
+    phi0 = 0.0
+    x0 = R0 * cos(phi0)
+    y0 = R0 * sin(phi0)
     z0 = 0.4
+    spot_size = 0.0174  # beam width parameter
+    inverse_curvature_radius = 1.0/3.99
     α = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
     β = 0.0
     global TEST_DATA_LOADED = true
