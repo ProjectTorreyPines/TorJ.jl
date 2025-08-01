@@ -161,8 +161,7 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
 
     p = plot3d(xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
                title="Beam Trajectories with Weight Color Coding",
-               legend=false, dpi=300, 
-               camera=(45, 30); kwargs...)
+               legend=false, dpi=300; kwargs...)
     
     # Plot each resampled trajectory
     for i in 1:length(weights)
