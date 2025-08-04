@@ -16,12 +16,11 @@ import TorJ: IMAS
     N0 = [0.0,0.0,1.0]
     w = 0.0174  # beam width parameter
     inverse_curvature_radius = 1.0/3.99
-    freq = 110.0e9
     N_rings = 21  # Use more rings for better accuracy
     
     # Generate peripheral rays
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, w, N_rings, inverse_curvature_radius, freq; 
+        x0, N0, w, N_rings, inverse_curvature_radius, f_abs_test; 
         min_azimuthal_points=11, normalize_weight_sum=false)
     
     # Since launch is at origin and rays go in z-direction,

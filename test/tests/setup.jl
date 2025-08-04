@@ -38,10 +38,11 @@ if !@isdefined(TEST_DATA_LOADED)
                         profiles_1d.electrons.density,
                         profiles_1d.electrons.temperature,
                         eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
-                        eq_slice.profiles_2d[1].b_field_tor);
+                        eq_slice.profiles_2d[1].b_field_tor,
+                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.dvolume_dpsi);
 
-    freq = 85.5E9
-    freq_abs_test = 92.5E9
+    f = 85.5E9
+    f_abs_test = 92.5E9
     R0 = 2.5
     phi0 = 0.0
     x0 = R0 * cos(phi0)

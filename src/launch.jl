@@ -1,5 +1,5 @@
 """
-    launch_peripheral_rays(x0, N0, width, N_rings, N_azimuthal, dist_focus, focus_shift, one_sigma_width, freq)
+    launch_peripheral_rays(x0, N0, width, N_rings, N_azimuthal, dist_focus, focus_shift, one_sigma_width, f)
 
 Launch peripheral rays for geometrical optics raytracing in a circular pattern.
 This function spans a beam perpendicular to the central ray using concentric circles
@@ -11,7 +11,7 @@ to discretize the beam cross-section.
 - `w::T`: beam width in meters
 - `inverse_curvature_radius`: Inverse curvature radius of the circular beam at launch
 - `N_rings::Integer`: Number of concentric rings
-- `freq::T`: Frequency in Hz
+- `f::T`: Frequency in Hz
 - `min_azimuthal_points::Integer`: Minimal number of azimuthal points should be at least 5
 
 # Returns
