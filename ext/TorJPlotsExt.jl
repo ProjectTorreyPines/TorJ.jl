@@ -317,25 +317,28 @@ function plot_beam_from_setup(; s_max=0.4, kwargs...)
     arc_lengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma_low_density, R0, phi0, z0, steering_angle_tor,
                                                steering_angle_pol, spot_size, 
                                                inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV)
-    
+    @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
+                                        steering_angle_pol, spot_size, 
+                                        inverse_curvature_radius, f_abs_test, 1, 1.0, dP_dV_psi)
     # Create first two plots - beam trajectories (X-Y and R-Z projections)
     # Note: process_launcher doesn't return dP_ds, so we pass empty array
     p1, p_rz = plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, ray_weights; tb_ref=tb_ref, kwargs...)
     
     # Create third plot - dP_dV vs psi_dP_dV
     Plots.pyplot()
-    p3 = Plots.plot(psi_dP_dV, dP_dV/maximum(dP_dV), 
+    p3 = Plots.plot(psi_dP_dV, dP_dV, 
               xlabel="ψ", ylabel="dP/dV", 
               title="Power Deposition Profile",
-              linewidth=2, dpi=300)
+              linewidth=2, dpi=300,
+              label="TorJ")
     
-    # Add reference psi and dPdV from tb_ref if available
+    # Add reference psi and dPdV from tb_ref and normalizing by the total power of 1 MW
     if haskey(tb_ref, "psi") && haskey(tb_ref, "dPdV")
-        Plots.plot!(p3, tb_ref["psi"], tb_ref["dPdV"]/maximum(tb_ref["dPdV"]),
+        Plots.plot!(p3, tb_ref["psi"], 0.5*tb_ref["dPdV"]/1.e6,
                    linestyle=:dash, linewidth=2, color=:red,
                    label="Reference")
     end
-    println("Ratio between dP/dV maxima (TorJ/TB) $(maximum(dP_dV)/maximum(tb_ref["dPdV"]))")
+    println("Ratio between dP/dV maxima (TorJ/TB) $(maximum(dP_dV)/maximum(0.5*tb_ref["dPdV"]/1.e6))")
     # Display all three plots using layout
     combined_plot = Plots.plot(p1, p_rz, p3, layout=(1, 3), size=(1800, 600))
     display(combined_plot)
