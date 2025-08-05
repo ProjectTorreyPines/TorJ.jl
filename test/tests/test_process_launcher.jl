@@ -3,7 +3,6 @@ include("setup.jl")
 # Check Dagger setup
 println("Checking Dagger setup...")
 TorJ.abs_Al_init(31)
-TorJ.check_dagger_setup()
 dP_dV_psi = LinRange(0.0, 1.0, 1000)
 @testset "process_launcher test" begin
     @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma, R0, phi0, z0, steering_angle_tor, 
