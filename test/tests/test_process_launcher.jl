@@ -3,9 +3,9 @@ include("setup.jl")
 # Check Dagger setup
 println("Checking Dagger setup...")
 TorJ.abs_Al_init(31)
-dP_dV_psi = LinRange(0.0, 1.0, 1000)
+dP_dV_psi = Vector(LinRange(0.0, 1.0, 1000))
 @testset "process_launcher test" begin
-    @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma, R0, phi0, z0, steering_angle_tor, 
+    @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
                                         steering_angle_pol, spot_size, 
                                         inverse_curvature_radius, f_abs_test, 1, 1.0, dP_dV_psi);
     # Compare total power absorbed against TORBEAM
