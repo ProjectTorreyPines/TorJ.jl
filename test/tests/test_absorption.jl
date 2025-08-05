@@ -1,7 +1,7 @@
 include("setup.jl")
 
 @testset "Absorption test" begin
-    omega = 2.0 * pi * freq_abs_test
+    omega = 2.0 * pi * f_abs_test
     TorJ.abs_Al_init(24)
     α = zeros(Float64, length(ecrad_ref_abs["x"]))
     Nr = ecrad_ref_abs["Nc"][1]
