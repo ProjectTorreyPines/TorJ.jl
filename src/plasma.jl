@@ -115,9 +115,10 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
             power_sum += dP_ds_spline(s_root)
         end
         
-        dP_dV[j] = power_sum * dV_dpsi[j]
+        dP_dV[j] = power_sum / dV_dpsi[j]
     end
     
     return dP_dV
 end
+
 

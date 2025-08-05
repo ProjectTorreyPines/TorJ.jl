@@ -1,7 +1,7 @@
 [data]
-git-tree-sha1 = "3205c947326a4af255dca141efa288c5337160d5"
+git-tree-sha1 = "745af3d20dec8156ab33ec051af8718883787180"
 
 [[data.download]]
-url = "https://github.com/ProjectTorreyPines/TorJ_test_data/releases/download/v2025.06.19-36c8a1c/data.tar.gz"
-sha256 = "ef5343e0ccf76639b99ae8db464d2ab9ec3ee1ac3d5f8edfc135a6a8e9b7395a"
+url = "https://github.com/ProjectTorreyPines/TorJ_test_data/releases/download/v2025.08.05-98d4e7f/data.tar.gz"
+sha256 = "2e6eb2055a807d1c1d5368c337bb866ab23fad1a734be283f2592aff82fec556"
 lazy = true

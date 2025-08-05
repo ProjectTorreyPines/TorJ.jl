@@ -23,7 +23,7 @@ to discretize the beam cross-section.
 function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T}, 
                                 w::T, N_rings::Integer, inverse_curvature_radius::T,  
                                 f::T; min_azimuthal_points = 5, normalize_weight_sum=true) where {T<:Real}
-     if N_rings < 2
+    if N_rings < 2
         throw(ArgumentError("N_rings = $N_rings < 2 which is the minimum"))
     end
     # Normalized N0 (should already be normalized but better to make sure)
@@ -35,10 +35,15 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
         λ = constants.c/f
         # beam waist in vacuum - using https://physics.stackexchange.com/questions/270249/for-a-gaussian-beam-how-can-i-calculate-w-0-z-and-z-r-from-knowledge-of
         w0 = (λ * abs(R_curv) * w) / sqrt(λ^2 * R_curv^2 + π^2 * w^4)
-        # Distance to waist (not the same as curvature radius!). See stackexchange post above
+        # Current position w.r.t. to the waist (not the same as curvature radius!). See stackexchange post above
+        # Positive means that the starting position is after the waist -> divergent beam
         z_waist = π^2 * R_curv * w^4 /  (λ^2 * R_curv^2 + π^2 * w^4)
         # This respects the sign of the curvature radius
-        x_waist = x0 .+ n0 .* z_waist
+        # Here want to have the waist position w.r.t. the launch position.
+        # Hence for convergent beams, for which R_curv is negative we need to move along the ray.
+        # We are switching from a coordinate system that is defined with 0 at the beam waist to one
+        # That is centered around the launch point.
+        x_waist = x0 .- n0 .* z_waist
     else
         # Completely paraxial beam
         w0 = w
@@ -94,13 +99,15 @@ function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T},
             # Now calculate ray position at the beam waist
             # Use ray direction as temporary array
             if isfinite(inverse_curvature_radius)
-                ray_directions[k + j,:] .= w0/w .* (χ  .* e_χ + υ .* e_υ) .* sign(inverse_curvature_radius)
-                if inverse_curvature_radius > 0
+                # This the waist position in the lab-frame for this ray
+                ray_directions[k + j,:] .= w0/w .* (χ  .* e_χ + υ .* e_υ) .* sign(inverse_curvature_radius) + x_waist
+                if inverse_curvature_radius < 0.0
                     # Convergent beam -> waist in front of launch position w.r.t. n0
-                    ray_directions[k + j,:] .+= x_waist - ray_positions[k + j,:]
+                    ray_directions[k + j,:] .-= ray_positions[k + j,:]
                 else
                     # Divergent beam  -> waist behind of launch position w.r.t. n0
-                    ray_directions[k + j,:] .+= ray_positions[k + j,:] .- x_waist
+                    ray_directions[k + j,:] .*= -1.0
+                    ray_directions[k + j,:] .+= ray_positions[k + j,:]
                 end
                 ray_directions[k + j,:] ./= LinearAlgebra.norm(ray_directions[k + j,:])
             else

@@ -4,9 +4,11 @@ import TorJ: IMAS
 import Artifacts
 import Pkg
 import JSON
-
+if !@isdefined(FORCE_RELOAD_TEST_DATA)
+    FORCE_RELOAD_TEST_DATA = false
+end
 # Only run preprocessing if it hasn't been done already
-if !@isdefined(TEST_DATA_LOADED)
+if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
     Pkg.ensure_artifact_installed("data", joinpath(@__DIR__, "..", "Artifacts.toml"))
     artifact_path = Artifacts.artifact"data"
 
@@ -15,6 +17,10 @@ if !@isdefined(TEST_DATA_LOADED)
     end
 
     ecrad_ref_abs = open(artifact_path * "/data/ECRad_params_2.json", "r") do io
+        JSON.parse(IOBuffer(read(io)))
+    end
+
+    tb_ref = open(artifact_path * "/data/tb_results.json", "r") do io
         JSON.parse(IOBuffer(read(io)))
     end
 
@@ -36,6 +42,15 @@ if !@isdefined(TEST_DATA_LOADED)
                         (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
                         profiles_1d.electrons.density,
+                        profiles_1d.electrons.temperature,
+                        eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
+                        eq_slice.profiles_2d[1].b_field_tor,
+                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.dvolume_dpsi);
+    # For comparing against TORBEAM we want less dispersion
+    plasma_low_density = TorJ.Plasma(R_grid, z_grid,
+                        (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
+                        (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
+                        profiles_1d.electrons.density * 0.3,
                         profiles_1d.electrons.temperature,
                         eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
                         eq_slice.profiles_2d[1].b_field_tor,

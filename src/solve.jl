@@ -260,11 +260,17 @@ function process_launcher(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor
                                                steering_angle_pol, spot_size, 
                                                inverse_curvature_radius, f, mode, s_max)
     dpsi_dV = plasma.dvolume_dpsi_spline(psi_dP_dV)                                            
-    dP_dV = zeros(length(psi_dP_dV))                                            
+    dP_dV = zeros(length(psi_dP_dV))
+    absorbed_power_fraction = 0.0
     for i_ray in 1:length(arc_lengths)                                            
         dP_dV .+= power_deposition_profile(plasma, arc_lengths[i_ray], trajectories[i_ray], dP_ds[i_ray].*ray_weights[i_ray], 
                                            psi_dP_dV, dpsi_dV)
+        # Sum all remaining power in each ray                                           
+        absorbed_power_fraction -= ray_powers[i_ray][end]*ray_weights[i_ray]
     end
-    return arc_lengths, trajectories, ray_powers, dP_dV, ray_weights
+    # add 1, which is the initial power, to get the absorbed power vs. the remaining power
+    absorbed_power_fraction += 1.0
+    
+    return arc_lengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction
 end
 
