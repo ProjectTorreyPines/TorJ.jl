@@ -10,5 +10,5 @@ dP_dV_psi = Vector(LinRange(0.0, 1.0, 1000))
                                         inverse_curvature_radius, f_abs_test, 1, 1.0, dP_dV_psi);
     # Compare total power absorbed against TORBEAM
     # This case has nearly total absorption but not quite making it a decent benchmark
-    @test isapprox(absorbed_power_fraction, tb_ref["P_abs"]; atol=0.001, rtol=1.e-3)
+    @test isapprox(absorbed_power_fraction, tb_ref["P_abs"]/1.e6; atol=0.001, rtol=1.e-3)
 end
