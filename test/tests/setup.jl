@@ -67,5 +67,12 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
     inverse_curvature_radius = 1.0/3.99
     steering_angle_pol = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
     steering_angle_tor = 0.0
+
+    # Define psi grid for dP_dV calculation
+    psi_dP_dV = Vector(LinRange(0.0, 1.0, 1000))
+
+    # Set up the points for the resonance ellipse integration in the absorption coefficient
+    TorJ.abs_Al_init(24)
+    # Set this global so we don't repeat this when we `include` it again
     global TEST_DATA_LOADED = true
 end

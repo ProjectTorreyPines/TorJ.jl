@@ -308,10 +308,7 @@ Creates three plots: X-Y projection, R-Z projection, and power deposition profil
 function plot_beam_from_setup(; s_max=0.4, kwargs...)
     # Import setup parameters (similar to test_make_beam.jl)
     include(joinpath(@__DIR__, "../test/tests/setup.jl"))
-    TorJ.abs_Al_init(31)
     
-    # Define psi grid for dP_dV calculation
-    psi_dP_dV = Vector(LinRange(0.0, 1.0, 1000))
     # Generate beam trajectories using make_beam
     arc_lengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor,
                                                steering_angle_pol, spot_size, 

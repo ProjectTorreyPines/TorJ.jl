@@ -1,9 +1,6 @@
 include("setup.jl")
 #Higher frequency for full beam test to avoid cut-off
-# Check Dagger setup
-println("Checking Dagger setup...")
-TorJ.abs_Al_init(31)
-dP_dV_psi = Vector(LinRange(0.0, 1.0, 1000))
+
 @testset "make_beam test" begin
     @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
                                         steering_angle_pol, spot_size, 
