@@ -19,9 +19,10 @@ function first_point(plasma::Plasma, p0::AbstractVector{T}, N0::Vector{T}) where
     if on_grid(plasma, p0)
         p_plasma = p0
     else
-        p_plasma = vec(IMAS.ray_torus_intersect(p0, N0, 
-                                            [plasma.R_coords[1], plasma.R_coords[end]],
-                                            [plasma.Z_coords[1], plasma.Z_coords[end]]))
+        t = IMAS.toroidal_intersection([plasma.R_coords[1], plasma.R_coords[end], plasma.R_coords[end], plasma.R_coords[1], plasma.R_coords[1]], 
+                                       [plasma.Z_coords[1], plasma.Z_coords[1], plasma.Z_coords[end], plasma.Z_coords[end], plasma.Z_coords[1]], 
+                                        p0, N0)
+        p_plasma = p0 .+ N0 .* t
     end
     g(t) = evaluate(plasma.psi_norm_spline, p_plasma .+ t .* N0) - plasma.psi_prof_max
     # TODO find better estimate for upper limit of distance between first point on grid and plasma.psi_prof_max

@@ -11,13 +11,13 @@ include("setup.jl")
     i_ref = 1
     for i in eachindex(ecrad_ref["R"])
         i_ref = i
-        if abs(ecrad_ref["R"][i] - R0) < abs(ecrad_ref["R"][i+1] - R0) break end
+        abs(ecrad_ref["R"][i] - R0) < abs(ecrad_ref["R"][i+1] - R0) && break
     end
     s_offset_ecrad = ecrad_ref["s"][i_ref]
     i_ref = 1
     for i in eachindex(ecrad_ref["R"])
         i_ref = i
-        if abs(R[i] - R0) < abs(R[i+1] - R0) break end
+        abs(R[i] - R0) < abs(R[i+1] - R0) && break
     end
     s_offset_torj = s_torj[i_ref]
     s_torj .-= s_offset_torj
@@ -25,7 +25,7 @@ include("setup.jl")
     ecrad_z_itp = IMAS.interp1d(ecrad_ref["s"] .- s_offset_ecrad, ecrad_ref["z"], :cubic)
     for i in eachindex(R)
         psi_norm = TorJ.evaluate(plasma.psi_norm_spline, x[:,i])
-        if psi_norm >= maximum(ecrad_ref["rhop"])^2 continue end
+        psi_norm >= maximum(ecrad_ref["rhop"])^2 && continue
         dist = hypot.(ecrad_r_itp(s_torj[i]) .- R[i], ecrad_z_itp(s_torj[i]) .- x[3,i])
         @test dist < 2.e-3
     end
