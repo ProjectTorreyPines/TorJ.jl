@@ -3,25 +3,29 @@ Test for Gaussian integration using polar coordinates from launch_peripheral_ray
 
 This test validates that the polar coordinate discretization from launch_peripheral_rays
 correctly integrates a 2D Gaussian function by comparing to a reference integration method.
+Also tests that reference ray positions correspond to expected weights.
 """
 
 using Test
 import TorJ
 import TorJ: IMAS
+using TorJ: Interpolations
+import TorJ: LinearAlgebra
 
 @testset "Gaussian Integration with Polar Coordinates" begin
+    # Load setup parameters
+    include(joinpath(@__DIR__, "setup.jl"))
     
-    # Test parameters matching the launch function
+    # Test parameters - simple geometry for integration test
     x0 = [0.0,0.0,0.0]
     N0 = [0.0,0.0,1.0]
-    w = 0.0174  # beam width parameter
-    inverse_curvature_radius = 1.0/3.99
-    freq = 110.0e9
+    # Use parameters from setup.jl
+    w = spot_size  # beam width parameter from setup
     N_rings = 21  # Use more rings for better accuracy
     
     # Generate peripheral rays
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, w, N_rings, inverse_curvature_radius, freq; 
+        x0, N0, w, N_rings, inverse_curvature_radius, f_abs_test; 
         min_azimuthal_points=11, normalize_weight_sum=false)
     
     # Since launch is at origin and rays go in z-direction,

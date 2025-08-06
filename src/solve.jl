@@ -114,7 +114,7 @@ function sys!(du, u, p, s, plasma::Plasma, ω::Real, mode::Integer)
 end
 
 """
-    make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+    make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, f::T, mode::Integer, s_max::Float64) where {T<:Real}
 
 Launch a single ray through the plasma and compute its trajectory with absorption.
 
@@ -122,34 +122,38 @@ Launch a single ray through the plasma and compute its trajectory with absorptio
 - `plasma`: Plasma configuration containing density, temperature, and magnetic field
 - `x0`: Initial position in vacuum [x, y, z] (meters)
 - `N_vacuum`: Initial refractive index vector in vacuum
-- `freq`: Wave frequency (Hz)
+- `f`: Wave frequency (Hz)
 - `mode`: Polarization mode (+1 for X-mode, -1 for O-mode)
 - `s_max`: Maximum integration distance (meters)
+- `psi_dP_dV`: Psi axis for power deposition profile
 
 # Returns
 - `s`: Arclength array along the trajectory
 - `u`: Position trajectory as vector of 3D points
 - `P_beam`: Beam power along the trajectory
 """
-function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVector{<:T}, 
+                  f::T, mode::Integer, s_max::Float64, psi_dP_dV::AbstractVector{<:T}) where {T<:Real}
     p_plasma = first_point(plasma, x0, N_vacuum)
     @assert evaluate(plasma.psi_norm_spline, p_plasma) <= plasma.psi_prof_max
 
-    N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *freq, mode)
-    @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *freq, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
+    N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *f, mode)
+    @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *f, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
 
     # Initial condition: [position, refractive_index, power]
     u0 = [p_plasma; N_plasma; 1.0]
     N_steps = 100
     s_step = s_max / Float64(N_steps)
     # We will add the arc_length for the step in vacuum in the end
-    s = vec([0.0, 0.0])
+    s0 = LinearAlgebra.norm(p_plasma .- x0)
+    s = vec([0.0, s0])
     P_beam = vec([1.0, 1.0])
+    dP_ds = vec([0.0, 0.0])
     # Add the first two points
     u = vec([vec(x0), p_plasma])
     for i in 1:N_steps
-        prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *freq, mode), u0, 
-                          (Float64(i-1)*s_step, Float64(i)*s_step), OwrenZen3(); 
+        prob = ODEProblem((du, u, p, s) -> sys!(du, u, p, s, plasma, 2.0 * pi *f, mode), u0, 
+                          (Float64(i-1)*s_step + s0, Float64(i)*s_step + s0), OwrenZen3(); 
                           dtmax=1.e-4, abstol=1.e-6, reltol=1.e-6)
         # Ensure that the power does not oscillate around 0.0
         condition(u, t, integrator) = u[7] < 0
@@ -162,28 +166,22 @@ function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVec
         for solution_step in sol.u[2:end]
             push!(u, solution_step[1:3])  # Only store position, not direction
             push!(P_beam, solution_step[7])
+            # Store the dP/ds needed for power deposition.
+            # It is difficult to reuse information from the ODE integration because `sol.u` is an interpolation
+            push!(dP_ds, solution_step[7] * α_approx(solution_step[1:3], solution_step[4:6], plasma, 2.0 * pi *f, mode))
         end
-        # Extract power values (7th component) from each solution step
+        # Check if we are still in the plasma otherwise stop propagation
         if evaluate(plasma.psi_norm_spline, u0[1:3]) > 1.0 break end
-        # X, Y, N_par, b = eval_plasma(plasma, u0[1:3], u0[4:6], 2.0 * pi *freq)
-        # R = hypot(u0[1], u0[2])
-        # dX_dx_ana_test = dX_dx(plasma, u0[1:3], 2.0 * pi *freq)
-        # dX_dx_test = ForwardDiff.gradient((x) -> wrap_eval_plasma(plasma, x, u0[4:6], 2.0 * pi *freq, 1), u0[1:3])
-        # println("Analytical dX_dx: ", dX_dx_ana_test)
-        # println("Forward diff dX_dx: ", dX_dx_test)
-        # println("Analytical - forward diff dX_dx: ", dX_dx_ana_test - dX_dx_test)
-        # println("Normalized error: ", 0.5*(dX_dx_ana_test .- dX_dx_test)./(dX_dx_ana_test .+ dX_dx_test))
-        # N_s = sqrt(refractive_index_sq(X, Y, N_par, mode))
-        # error = dispersion_relation(u0, plasma, 2.0 * pi *freq, mode)
-        # println("$R, $X, $Y, $N_par, $N_s, $error")
+        # Check if the beam has any power left, otherwise stop propagation
+        if sol.u[end][7] < 1.e-6 break end
     end
     # Finally add the offset from the vacuum step
-    s[2:end] .+= LinearAlgebra.norm(p_plasma .- x0)
-    return s, u, P_beam
+    dP_dV_ray, deposited_power = power_deposition_profile(plasma, s, u, dP_ds, psi_dP_dV)
+    return s, u, P_beam, dP_dV_ray, deposited_power
 end
 
 """
-    make_beam(plasma, r, phi, z, steering_angle_tor, steering_angle_pol, spot_size, inverse_curvature_radius, freq, mode, s_max)
+    make_beam(plasma, r, phi, z, steering_angle_tor, steering_angle_pol, spot_size, inverse_curvature_radius, f, mode, s_max)
 
 Launch multiple rays forming a beam and compute their trajectories with absorption in parallel using Dagger.
 
@@ -196,28 +194,30 @@ Launch multiple rays forming a beam and compute their trajectories with absorpti
 - `steering_angle_pol`: Poloidal steering angle (radians)
 - `spot_size`: Beam spot size parameter (meters)
 - `inverse_curvature_radius`: Inverse radius of curvature (1/meters)
-- `freq`: Wave frequency (Hz)
+- `f`: Wave frequency (Hz)
 - `mode`: Polarization mode (+1 for X-mode, -1 for O-mode)
 - `s_max`: Maximum integration distance (meters)
+- `psi_dP_dV`: Psi axis for power deposition profile
 
 # Returns
 - `arc_lengths`: Vector of arclength arrays (one per ray)
 - `trajectories`: Vector of trajectory arrays (one per ray)  
 - `ray_powers`: Vector of beam power arrays (one per ray)
+- `dP_ds`: Vector of change of power as function of s (one per ray)
 - `ray_weights`: Ray weights for beam integration
 """
 function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, steering_angle_pol::T, spot_size::T, 
-                   inverse_curvature_radius::T, freq::T, mode::Integer, s_max::Float64) where {T<:Real}
+                   inverse_curvature_radius::T, f::T, mode::Integer, s_max::Float64, psi_dP_dV::Vector{T}) where {T<:Real}
     N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))
     x0 = zeros(Float64,3)
     x0[1] = r * cos(phi)
     x0[2] = r * sin(phi)
     x0[3] = z
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, spot_size, 3, inverse_curvature_radius, freq)
+        x0, N0, spot_size, 3, inverse_curvature_radius, f)
     
-    println("Creating $(length(ray_weights)) Dagger tasks for parallel ray tracing...")
-    ray_tasks = [Dagger.@spawn make_ray(plasma, ray_positions[i,:], ray_directions[i,:], freq, mode, s_max) 
+    ray_tasks = [Dagger.@spawn make_ray(plasma, ray_positions[i,:], ray_directions[i,:], 
+                                        f, mode, s_max, psi_dP_dV) 
                  for i in 1:length(ray_weights)]
     
     # Collect results preserving order (ensures correspondence with ray_weights)
@@ -227,6 +227,16 @@ function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, st
     arc_lengths = [result[1] for result in ray_results]
     trajectories = [result[2] for result in ray_results]
     ray_powers = [result[3] for result in ray_results]
+    dP_dV_ray  = [result[4] for result in ray_results]
+    deposited_power_ray  = [result[5] for result in ray_results]
     
-    return arc_lengths, trajectories, ray_powers, ray_weights 
+    dP_dV = zeros(Float64, length(psi_dP_dV))
+    # From the power deposition profile
+    deposited_power = 0.0
+    # From the rays directly
+    for i_ray in eachindex(ray_weights)
+        dP_dV .+= dP_dV_ray[i_ray] * ray_weights[i_ray]
+        deposited_power += deposited_power_ray[i_ray] * ray_weights[i_ray]
+    end
+    return arc_lengths, trajectories, ray_powers, dP_dV, deposited_power, ray_weights 
 end

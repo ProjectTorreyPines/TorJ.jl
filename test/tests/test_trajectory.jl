@@ -11,7 +11,7 @@ include("setup.jl")
         ne = TorJ.n_e(plasma, x)
         ne_rel_diff = (ne - ecrad_ref["ne"][i]) / (2.0 * (ne + ecrad_ref["ne"][i]))
         @test abs(ne_rel_diff) < 1.e-2
-        X, Y = TorJ.eval_plasma(plasma, x, N, 2.0 * pi * freq)
+        X, Y = TorJ.eval_plasma(plasma, x, N, 2.0 * pi * f)
         Y_diff = abs(Y - ecrad_ref["Y"][i])
         @test Y_diff < 1.e-6
     end

@@ -11,6 +11,7 @@ using Roots
 using SpecialFunctions: besselj
 using FastGaussQuadrature
 using Dagger
+import Dierckx
 
 # Module-level constants (equivalent to Fortran parameters)
 

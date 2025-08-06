@@ -5,6 +5,7 @@ version = "0.2.0"
 
 [deps]
 Dagger = "d58978e5-989f-55fb-8d15-ea34adc7bf54"
+Dierckx = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -29,6 +30,7 @@ solve_ext = "Enzyme"
 
 [compat]
 Dagger = "0.19.0"
+Dierckx = "0.5.4"
 Enzyme = "0.13.44"
 EnzymeCore = "0.8.8"
 FastGaussQuadrature = "1.0.2"
