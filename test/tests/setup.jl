@@ -24,6 +24,10 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
         JSON.parse(IOBuffer(read(io)))
     end
 
+    toray_ref = open(artifact_path * "/data/toray_results.json", "r") do io
+        JSON.parse(IOBuffer(read(io)))
+    end
+
     dd = IMAS.json2imas(artifact_path *"/data/sample_L_mode_peaked.json"; error_on_missing_coordinates=false)
     dd.global_time = 2.0
 

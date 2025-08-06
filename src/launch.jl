@@ -1,5 +1,6 @@
 """
-    launch_peripheral_rays(x0, N0, width, N_rings, N_azimuthal, dist_focus, focus_shift, one_sigma_width, f)
+    launch_peripheral_rays(x0, N0, width, dist_focus, focus_shift, one_sigma_width, f;
+                           N_rings=3, min_azimuthal_points = 5, normalize_weight_sum=true, kwargs...)
 
 Launch peripheral rays for geometrical optics raytracing in a circular pattern.
 This function spans a beam perpendicular to the central ray using concentric circles
@@ -10,19 +11,19 @@ to discretize the beam cross-section.
 - `N0::AbstractVector{T}`: Central ray direction vector (normalized)
 - `w::T`: beam width in meters
 - `inverse_curvature_radius`: Inverse curvature radius of the circular beam at launch
-- `N_rings::Integer`: Number of concentric rings
 - `f::T`: Frequency in Hz
-- `min_azimuthal_points::Integer`: Minimal number of azimuthal points should be at least 5
+- `N_rings::Integer`: Optional - specify the number of concentric rings, 3 by default
+- `min_azimuthal_points::Integer`:  Optional - specify the minimal number of azimuthal points should be at least 5
+- `normalize_weight_sum`: Make sure all weights sum up to one. Should only be false for tests.
 
 # Returns
 - `ray_positions::Vector{Vector{T}}`: Launch positions for all peripheral rays
 - `ray_directions::Vector{Vector{T}}`: Direction vectors for all peripheral rays  
 - `ray_weights::Vector{T}`: Statistical weights for each ray
-- `normalize_weight_sum`: Make sure all weights sum up to one. Should only be false for tests.
 """
 function launch_peripheral_rays(x0::AbstractVector{T}, N0::AbstractVector{T}, 
-                                w::T, N_rings::Integer, inverse_curvature_radius::T,  
-                                f::T; min_azimuthal_points = 5, normalize_weight_sum=true) where {T<:Real}
+                                w::T, inverse_curvature_radius::T,  
+                                f::T; N_rings=3, min_azimuthal_points = 5, normalize_weight_sum=true, kwargs...) where {T<:Real}
     if N_rings < 2
         throw(ArgumentError("N_rings = $N_rings < 2 which is the minimum"))
     end

@@ -23,7 +23,7 @@ Optionally plots starting points of reference rays from tb_ref if provided.
 # Returns
 - Plots.jl 3D plot object
 """
-function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, tb_ref=nothing, kwargs...)
+function plot_peripheral_rays_3d(; ray_length=1.0, tb_ref=nothing, kwargs...)
     # Parameters from setup.jl and user specification
     x0 = [2.5, 0.0, 0.4]
     steering_angle_pol = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
@@ -35,7 +35,7 @@ function plot_peripheral_rays_3d(; N_rings=5, ray_length=1.0, tb_ref=nothing, kw
     
     # Generate peripheral rays using the fixed function
     ray_origins, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, w, N_rings, inverse_curvature_radius, f)
+        x0, N0, w, inverse_curvature_radius, f; kwargs...)
     
     # Extract data from matrices (N_rays × 3 format)
     N_rays = size(ray_origins, 1)
@@ -183,7 +183,6 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
     
     # Normalize weights for color mapping
     min_weight, max_weight = extrema(weights)
-    println("$min_weight, $max_weight")
     normalized_weights = [(weights[i] .- min_weight) ./ (max_weight - min_weight) for i in eachindex(weights)]
     alpha_values = 0.05 .+ 0.95 .* normalized_weights  # Scale to 0.1-1.0 range
     # Use PyPlot backend for better window display
@@ -312,7 +311,7 @@ function plot_beam_from_setup(; s_max=0.4, kwargs...)
     # Generate beam trajectories using make_beam
     arc_lengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor,
                                                steering_angle_pol, spot_size, 
-                                               inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV)
+                                               inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV; N_rings=3, min_azimuthal_points=5)
     # Create first two plots - beam trajectories (X-Y and R-Z projections)
     p1, p_rz = plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, ray_weights; tb_ref=tb_ref, kwargs...)
     
@@ -326,11 +325,16 @@ function plot_beam_from_setup(; s_max=0.4, kwargs...)
     
     # Add reference psi and dPdV from tb_ref and normalizing by the total power of 1 MW
     if haskey(tb_ref, "psi") && haskey(tb_ref, "dPdV")
-        Plots.plot!(p3, tb_ref["psi"], tb_ref["dPdV"]/1.e6,
+        Plots.plot!(p3, tb_ref["psi"], tb_ref["dPdV"]./1.e6,
                    linestyle=:dash, linewidth=2, color=:red,
-                   label="Reference")
+                   label="Torbeam")
     end
-    println("Ratio between dP/dV maxima (TorJ/TB) $(maximum(dP_dV)/maximum(0.5*tb_ref["dPdV"]/1.e6))")
+    if haskey(toray_ref, "psi_dPdV") && haskey(toray_ref, "dPdV")
+        Plots.plot!(p3, toray_ref["psi_dPdV"], toray_ref["dPdV"],
+                   linestyle=:dot, linewidth=2, color=:black,
+                   label="Toray")
+    end
+    println("Ratio between dP/dV maxima (TorJ/TB) $(maximum(dP_dV)/maximum(tb_ref["dPdV"]/1.e6))")
     # Display all three plots using layout
     combined_plot = Plots.plot(p1, p_rz, p3, layout=(1, 3), size=(1800, 600))
     display(combined_plot)
