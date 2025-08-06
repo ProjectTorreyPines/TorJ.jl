@@ -2,7 +2,7 @@ include("setup.jl")
 #Higher frequency for full beam test to avoid cut-off
 
 @testset "make_beam test" begin
-    @time arclengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
+    @time arclengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
                                         steering_angle_pol, spot_size, 
                                         inverse_curvature_radius, f_abs_test, 1, 1.0, psi_dP_dV);
     # Compare total power absorbed against TORBEAM

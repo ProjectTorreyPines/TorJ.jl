@@ -125,7 +125,7 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
             break
         elseif length(intervals) % 2 != 0
             # length(intervals) % 2 = 1: End of the ray, does not count
-            intervals .= intervals[1:end-1]
+            intervals = intervals[1:end-1]
         end
         k = 1
         δP = 0.0
