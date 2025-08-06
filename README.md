@@ -14,4 +14,4 @@ dev TorJ
 
 #### Usage
 
-See `test/tests/raytrace_test.jl`.
+See `test/tests/test_make_ray.jl`.
