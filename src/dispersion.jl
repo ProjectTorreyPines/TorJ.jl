@@ -46,14 +46,19 @@ function refractive_index_sq( X::Real, Y::Real, N_par::Real, mode::Integer)
     return Ns_sq
 end
 
-function dispersion_relation(u::AbstractVector{<:Real},  plasma::Plasma, omega:: Real, mode::Integer)
-    x = @view u[1:3]
-    N = @view u[4:6]
+function dispersion_relation(x::AbstractVector{<:Real},  N::AbstractVector{<:Real}, plasma::Plasma, omega:: Real, mode::Integer)
     N_abs = LinearAlgebra.norm(N)
     X, Y, N_par, b = eval_plasma(plasma, x, N, omega)
     Ns_sq = refractive_index_sq(X, Y, N_par, mode)
     return N_abs^2 - Ns_sq
 end
+
+function dispersion_relation_enzyme(u::AbstractVector{<:Real},  plasma::Plasma, omega:: Real, mode::Integer)
+    x = @view u[1:3]
+    N = @view u[4:6]
+    return dispersion_relation(x, N, plasma, omega, mode)
+end
+
 function dΛ_dN_ana(N:: AbstractVector{<:Real}, X::Real, Y::Real, N_par::Real, b::AbstractVector{<:Real}, mode::Integer)
     dNs_sq_dN_par = (N_par*X*Y^2*(1.0 + (Real(mode)*(2.0 - 2*X + (-1.0 + N_par^2)*Y^2))/ (Y^2*sqrtΔ(X, Y, N_par))))/(-1.e0 + X + Y^2)
     return 2.e0 * N .- b .* dNs_sq_dN_par

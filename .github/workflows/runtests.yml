@@ -1,0 +1,24 @@
+name: Test
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - '.github/workflows/test.yml'
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
+  pull_request:
+    branches: ["master"]
+    paths:
+      - '.github/workflows/test.yml'
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
+
+jobs:
+  test:
+    uses: ProjectTorreyPines/GitHubActionsWorkflows/.github/workflows/test.yml@master
+    secrets: inherit
+    with:
+      use_dvc: false
