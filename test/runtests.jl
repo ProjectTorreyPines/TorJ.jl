@@ -9,7 +9,7 @@ else
     include("tests/test_trajectory.jl")
     include("tests/test_absorption.jl")
     include("tests/test_launch_weights.jl")
-    include("tests/test_process_launcher.jl")
+    include("tests/test_make_beam.jl")
 end
 
 

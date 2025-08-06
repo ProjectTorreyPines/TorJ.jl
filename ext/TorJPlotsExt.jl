@@ -295,7 +295,7 @@ end
 """
     plot_beam_from_setup(; s_max=0.4, kwargs...)
 
-Create and plot beam trajectories using process_launcher and parameters from setup.jl.
+Create and plot beam trajectories using make_beam and parameters from setup.jl.
 Creates three plots: X-Y projection, R-Z projection, and power deposition profile (dP/dV vs ψ).
 
 # Arguments  
@@ -306,19 +306,17 @@ Creates three plots: X-Y projection, R-Z projection, and power deposition profil
 - Tuple of three Plots.jl objects: (xy_projection_plot, rz_projection_plot, power_deposition_plot)
 """
 function plot_beam_from_setup(; s_max=0.4, kwargs...)
-    # Import setup parameters (similar to test_process_launcher.jl)
+    # Import setup parameters (similar to test_make_beam.jl)
     include(joinpath(@__DIR__, "../test/tests/setup.jl"))
     TorJ.abs_Al_init(31)
     
     # Define psi grid for dP_dV calculation
     psi_dP_dV = Vector(LinRange(0.0, 1.0, 1000))
-    
-    # Generate beam trajectories using process_launcher
-    arc_lengths, trajectories, ray_powers, dP_dV, ray_weights, absorbed_power_fraction = TorJ.process_launcher(plasma_low_density, R0, phi0, z0, steering_angle_tor,
+    # Generate beam trajectories using make_beam
+    arc_lengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor,
                                                steering_angle_pol, spot_size, 
                                                inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV)
     # Create first two plots - beam trajectories (X-Y and R-Z projections)
-    # Note: process_launcher doesn't return dP_ds, so we pass empty array
     p1, p_rz = plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, ray_weights; tb_ref=tb_ref, kwargs...)
     
     # Create third plot - dP_dV vs psi_dP_dV

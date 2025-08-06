@@ -45,7 +45,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
                         profiles_1d.electrons.temperature,
                         eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
                         eq_slice.profiles_2d[1].b_field_tor,
-                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.dvolume_dpsi);
+                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.volume);
     # For comparing against TORBEAM we want less dispersion
     plasma_low_density = TorJ.Plasma(R_grid, z_grid,
                         (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis),
@@ -54,7 +54,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
                         profiles_1d.electrons.temperature,
                         eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
                         eq_slice.profiles_2d[1].b_field_tor,
-                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.dvolume_dpsi);
+                        eq_slice.profiles_1d.psi, eq_slice.profiles_1d.volume);
 
     f = 85.5E9
     f_abs_test = 92.5E9
