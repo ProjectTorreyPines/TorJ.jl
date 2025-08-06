@@ -4,9 +4,11 @@ if !isempty(ARGS)
         include("tests/$(test_name)_test.jl")
     end
 else
-    include("tests/raytrace_test.jl")
-    include("tests/trajectory_test.jl")
-    include("tests/absorption_test.jl")
+    include("tests/test_absorption.jl")
+    include("tests/test_make_ray.jl")
+    include("tests/test_trajectory.jl")
+    include("tests/test_absorption.jl")
+    include("tests/test_launch_weights.jl")
 end
 
 

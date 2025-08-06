@@ -77,3 +77,8 @@ end
 function n_e(plasma::Plasma, x::AbstractVector{<:Real})
     return exp(evaluate(plasma.ne_spline, x)) #
 end
+
+function T_e(plasma::Plasma, x::AbstractVector{<:Real})
+    return exp(evaluate(plasma.Te_spline, x)) #
+end
+

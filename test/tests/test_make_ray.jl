@@ -1,6 +1,7 @@
 include("setup.jl")
 @testset "Raytrace test" begin
-    @time u = TorJ.make_ray(plasma, x0, y0, z0, β, α, freq, 1, 0.4);
+    N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))
+    @time s, u, P_beam = TorJ.make_ray(plasma, [x0, y0, z0], N0, freq, 1, 0.4);
 
     x = hcat([tu[1:3] for tu in u]...)
     R = hypot.(x[1,:], x[2,:])
