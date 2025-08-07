@@ -29,7 +29,7 @@ Generate Plasma structure from 2D maps of densities and magnetic fields
 """
 function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_prof::Vector{T},
                 ne_prof:: Vector{T}, Te_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, 
-                Bϕ_data::Matrix{T}, eqt1d_psi:: Vector{T}, eqt1d_volume:: Vector{T}) where {T<:Real}
+                Bϕ_data::Matrix{T}, eqt1d_psi_norm:: Vector{T}, eqt1d_volume:: Vector{T}) where {T<:Real}
     # Interpolation objects
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
@@ -39,9 +39,9 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     Br_spline = cubic_spline_interpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
     Bz_spline = cubic_spline_interpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
     Bϕ_spline = cubic_spline_interpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
-    psi_range = range(eqt1d_psi[1], eqt1d_psi[end], length(eqt1d_psi))
-    volume_eq_dist = IMAS.interp1d(eqt1d_psi, eqt1d_volume, :cubic).(psi_range)
-    volume_psi_spline = cubic_spline_interpolation(psi_range, volume_eq_dist; extrapolation_bc=Line())
+    psi_norm_range = range(eqt1d_psi_norm[1], eqt1d_psi_norm[end], length(eqt1d_psi_norm))
+    volume_eq_dist = IMAS.interp1d(eqt1d_psi_norm, eqt1d_volume, :cubic).(psi_norm_range)
+    volume_psi_spline = cubic_spline_interpolation(psi_norm_range, volume_eq_dist; extrapolation_bc=Line())
 
 
     return Plasma(
