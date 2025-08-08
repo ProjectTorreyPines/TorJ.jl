@@ -1,4 +1,5 @@
 include("setup.jl")
+import TorJ: Dierckx
 #Higher frequency for full beam test to avoid cut-off
 
 @testset "make_beam test" begin
@@ -18,4 +19,14 @@ include("setup.jl")
     # Check if power deposition profile is consistent with results from ray tracing
     println("Checking power deposition and ray absorbed power consistency: $absorbed_power_fraction, $absorbed_power")
     @test isapprox(absorbed_power_fraction, absorbed_power; atol=0.001, rtol=1.e-3)
+    # Check that the power deposition profile yields the absorbed power when integrated over the plasma volume
+    P_test = 0.0
+    volume_psi_spl = Dierckx.Spline1D(eq1d_psi_norm, eq_slice.profiles_1d.volume)
+    # This is equidistant
+    dpsi = psi_dP_dV[2] - psi_dP_dV[1]
+    for (i, psi_norm) in enumerate(psi_dP_dV)
+        P_test += Dierckx.derivative(volume_psi_spl, psi_norm, nu=1) * dP_dV[i] * dpsi
+    end
+    println("Checking manual volume integral against ray absorbed power for consistency: $absorbed_power_fraction, $P_test")
+    @test isapprox(absorbed_power_fraction, P_test; atol=0.001, rtol=1.e-3)
 end

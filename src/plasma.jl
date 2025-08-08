@@ -29,7 +29,7 @@ Generate Plasma structure from 2D maps of densities and magnetic fields
 """
 function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_prof::Vector{T},
                 ne_prof:: Vector{T}, Te_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, 
-                Bϕ_data::Matrix{T}, eqt1d_psi:: Vector{T}, eqt1d_volume:: Vector{T}) where {T<:Real}
+                Bϕ_data::Matrix{T}, eqt1d_psi_norm:: Vector{T}, eqt1d_volume:: Vector{T}) where {T<:Real}
     # Interpolation objects
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
@@ -39,9 +39,9 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
     Br_spline = cubic_spline_interpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
     Bz_spline = cubic_spline_interpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
     Bϕ_spline = cubic_spline_interpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
-    psi_range = range(eqt1d_psi[1], eqt1d_psi[end], length(eqt1d_psi))
-    volume_eq_dist = IMAS.interp1d(eqt1d_psi, eqt1d_volume, :cubic).(psi_range)
-    volume_psi_spline = cubic_spline_interpolation(psi_range, volume_eq_dist; extrapolation_bc=Line())
+    psi_norm_range = range(eqt1d_psi_norm[1], eqt1d_psi_norm[end], length(eqt1d_psi_norm))
+    volume_eq_dist = IMAS.interp1d(eqt1d_psi_norm, eqt1d_volume, :cubic).(psi_norm_range)
+    volume_psi_spline = cubic_spline_interpolation(psi_norm_range, volume_eq_dist; extrapolation_bc=Line())
 
 
     return Plasma(
@@ -106,13 +106,12 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
     psi_diff_spline = Dierckx.Spline1D(s, psi_s .- psi_dP_dV[j], k=3)
     # Find root with outer flux surface shell
     outer_roots = Dierckx.roots(psi_diff_spline)
-    last_volume = psi_dP_dV[j]
+    outer_volume = plasma.volume_psi_spline(psi_dP_dV[j])
     j -= 1
     while j > 0
         # Step through all volumes and integrate the power and volume change for each psi
-        current_volume = plasma.volume_psi_spline(psi_dP_dV[j])
-        δV = last_volume - current_volume
-        last_volume = current_volume
+        inner_volume = plasma.volume_psi_spline(psi_dP_dV[j])
+        δV = outer_volume - inner_volume
         # Create a function that represents psi_spline(s) - psi_target = 0
         psi_diff_spline = Dierckx.Spline1D(s, psi_s .- psi_dP_dV[j], k=3)
         # First find intersection with inner flux surface shell
@@ -131,7 +130,8 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
         δP = 0.0
         while k < length(intervals)
             # Integrate all power deposited in this flux surface shell
-            δP += Dierckx.integrate(dP_ds_spline, intervals[k], intervals[k+1])
+            # This should be an average but we are expressing <P> averaged over δs which is multiplied by δs/δV, hence the δs cancels
+            δP += abs(Dierckx.integrate(dP_ds_spline, intervals[k], intervals[k+1]))
             k += 2
         end
         if verbose
@@ -139,11 +139,12 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
         end
         # Form the differential
         dP_dV[j] = δP/δV
-        # This should be very close to the initial power P_0 if we did it right
+        # This should be very close to 1 - sum_i P_i(s_max) (1 - the power remaining in all rays) if we did it right
         P += δP
 
         # Prepare the next step
         j -= 1
+        outer_volume = inner_volume
         outer_roots = inner_roots
     end
     return dP_dV, P

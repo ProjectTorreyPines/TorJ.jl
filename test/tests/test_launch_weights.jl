@@ -25,8 +25,8 @@ import TorJ: LinearAlgebra
     
     # Generate peripheral rays
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, w, N_rings, inverse_curvature_radius, f_abs_test; 
-        min_azimuthal_points=11, normalize_weight_sum=false)
+        x0, N0, w, inverse_curvature_radius, f_abs_test; 
+        N_rings=N_rings, min_azimuthal_points=11, normalize_weight_sum=false)
     
     # Since launch is at origin and rays go in z-direction,
     # the integration is simply in the x-y plane

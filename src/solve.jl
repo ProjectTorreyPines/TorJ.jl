@@ -207,14 +207,14 @@ Launch multiple rays forming a beam and compute their trajectories with absorpti
 - `ray_weights`: Ray weights for beam integration
 """
 function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, steering_angle_pol::T, spot_size::T, 
-                   inverse_curvature_radius::T, f::T, mode::Integer, s_max::Float64, psi_dP_dV::Vector{T}) where {T<:Real}
+                   inverse_curvature_radius::T, f::T, mode::Integer, s_max::Float64, psi_dP_dV::Vector{T}; kwargs...) where {T<:Real}
     N0 = collect(IMAS.pol_tor_angles_2_vector(steering_angle_pol, steering_angle_tor))
     x0 = zeros(Float64,3)
     x0[1] = r * cos(phi)
     x0[2] = r * sin(phi)
     x0[3] = z
     ray_positions, ray_directions, ray_weights = TorJ.launch_peripheral_rays(
-        x0, N0, spot_size, 3, inverse_curvature_radius, f)
+        x0, N0, spot_size, inverse_curvature_radius, f; kwargs...)
     
     ray_tasks = [Dagger.@spawn make_ray(plasma, ray_positions[i,:], ray_directions[i,:], 
                                         f, mode, s_max, psi_dP_dV) 
