@@ -13,37 +13,61 @@ struct Plasma{R<:Vector, I2<:Extrapolation, I1<:Extrapolation, T<:Real}
     
 end
 
-function make_2d_prof_spline(r_range, z_range, psi, prof, psi_norm_data)
-    psi_range = range(psi[1], psi[end], length(psi))
-    prof2 = IMAS.interp1d(psi, prof, :cubic).(psi_range)
-    prof_spline = cubic_spline_interpolation(psi_range, log.(prof2); extrapolation_bc=Line())
-    prof_data = reshape(prof_spline(reshape(psi_norm_data, length(psi_norm_data))), size(psi_norm_data))
+function make_2d_prof_spline(r_range, z_range, psi_norm, prof, psi_norm_grid)
+    psi_norm_range = range(psi_norm[1], psi_norm[end], length(psi_norm))
+    prof2 = IMAS.interp1d(psi_norm, prof, :cubic).(psi_norm_range)
+    prof_spline = cubic_spline_interpolation(psi_norm_range, log.(prof2); extrapolation_bc=Line())
+    prof_data = reshape(prof_spline(reshape(psi_norm_grid, length(psi_norm_grid))), size(psi_norm_grid))
     return cubic_spline_interpolation((r_range, z_range), prof_data; extrapolation_bc=Line())
+end
+
+"""
+    Plasma(dd::IMAS.dd)
+
+Generate Plasma structure from dd.
+"""
+function Plasma(dd::IMAS.dd; ne_scale::Float64=1.0)
+    eqt = dd.equilibrium.time_slice[]
+    eqglobs = eqt.global_quantities
+    eqt1d = eqt.profiles_1d
+    eqt2d = IMAS.findfirst(:rectangular, eqt.profiles_2d)
+    cp1d = dd.core_profiles.profiles_1d[]
+    return Plasma(eqt2d.grid.dim1, eqt2d.grid.dim2, eqt2d.psi, 
+                  eqt2d.b_field_r, eqt2d.b_field_z, eqt2d.b_field_tor,
+                  eqglobs.psi_axis, eqglobs.psi_boundary,
+                  eqt1d.psi, eqt1d.volume, 
+                  cp1d.grid.psi, cp1d.electrons.density .* ne_scale,
+                  cp1d.electrons.temperature)
 end
 
 """
     Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_ne::Vector{T},
            ne_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T}) where {T<:Real}
 
-Generate Plasma structure from 2D maps of densities and magnetic fields
+Generate Plasma structure from 2D maps of densities and magnetic fields. All fields use the IMAS conventions.
 """
-function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{T}, psi_prof::Vector{T},
-                ne_prof:: Vector{T}, Te_prof:: Vector{T}, Br_data::Matrix{T}, Bz_data::Matrix{T}, 
-                Bϕ_data::Matrix{T}, eqt1d_psi_norm:: Vector{T}, eqt1d_volume:: Vector{T}) where {T<:Real}
+function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_grid::Matrix{T}, 
+                Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T},
+                psi_axis::T, psi_boundary::T,
+                eqt1d_psi:: Vector{T}, eqt1d_volume:: Vector{T},
+                psi_core_prof::Vector{T}, ne_prof:: Vector{T}, Te_prof:: Vector{T}) where {T<:Real}
     # Interpolation objects
+    _norm = psi -> (psi .- psi_axis) ./ (psi_boundary - psi_axis)
     r_range = range(R_coords[1], R_coords[end], length(R_coords))
     z_range = range(Z_coords[1], Z_coords[end], length(Z_coords))
-    psi_norm_spline = cubic_spline_interpolation((r_range, z_range), psi_norm_data; extrapolation_bc=Line())
-    ne_spline = make_2d_prof_spline(r_range, z_range, psi_prof, ne_prof, psi_norm_data)
-    Te_spline = make_2d_prof_spline(r_range, z_range, psi_prof, Te_prof, psi_norm_data)
+    psi_norm_spline = cubic_spline_interpolation((r_range, z_range), _norm(psi_grid); extrapolation_bc=Line())
+
     Br_spline = cubic_spline_interpolation((r_range, z_range), Br_data; extrapolation_bc=Line())
     Bz_spline = cubic_spline_interpolation((r_range, z_range), Bz_data; extrapolation_bc=Line())
     Bϕ_spline = cubic_spline_interpolation((r_range, z_range), Bϕ_data; extrapolation_bc=Line())
-    psi_norm_range = range(eqt1d_psi_norm[1], eqt1d_psi_norm[end], length(eqt1d_psi_norm))
-    volume_eq_dist = IMAS.interp1d(eqt1d_psi_norm, eqt1d_volume, :cubic).(psi_norm_range)
+    
+    psi_norm_range = range(_norm(eqt1d_psi[1]), _norm(eqt1d_psi[end]), length(eqt1d_psi))
+    volume_eq_dist = IMAS.interp1d(_norm(eqt1d_psi), eqt1d_volume, :cubic).(psi_norm_range)
     volume_psi_spline = cubic_spline_interpolation(psi_norm_range, volume_eq_dist; extrapolation_bc=Line())
 
-
+    ne_spline = make_2d_prof_spline(r_range, z_range, _norm(psi_core_prof), ne_prof, _norm(psi_grid))
+    Te_spline = make_2d_prof_spline(r_range, z_range, _norm(psi_core_prof), Te_prof, _norm(psi_grid))
+    
     return Plasma(
         R_coords,
         Z_coords,
@@ -54,7 +78,7 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_norm_data::Matrix{
         Bz_spline,
         Bϕ_spline,
         volume_psi_spline,
-        maximum(psi_prof))
+        maximum(_norm(eqt1d_psi)))
 end
 
 

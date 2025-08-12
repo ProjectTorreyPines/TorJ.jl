@@ -31,38 +31,17 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
     dd = IMAS.json2imas(artifact_path *"/data/sample_L_mode_peaked.json"; error_on_missing_coordinates=false)
     dd.global_time = 2.0
 
-    eq_slice = dd.equilibrium.time_slice[]
-    R_grid = eq_slice.profiles_2d[].grid.dim1
-    z_grid = eq_slice.profiles_2d[].grid.dim2
-    eq1d_psi_norm = (eq_slice.profiles_1d.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis)
-    profiles_1d = dd.core_profiles.profiles_1d[]
-    eq2d_psi_norm = (eq_slice.profiles_2d[1].psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis)
-
-    cp1_psi_norm = (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis) ./ (eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis)
+    plasma = TorJ.Plasma(dd);
+    # For comparing against TORBEAM we want less dispersion
+    plasma_low_density = TorJ.Plasma(dd; ne_scale=0.3);
 
     ecrad_ref["s"] = Vector{Float64}(ecrad_ref["s"])
     ecrad_ref["R"] = Vector{Float64}(ecrad_ref["R"])
     ecrad_ref["z"] = Vector{Float64}(ecrad_ref["z"])
 
 
-    eqt1d_psi = (profiles_1d.grid.psi .- eq_slice.global_quantities.psi_axis)./(eq_slice.global_quantities.psi_boundary - eq_slice.global_quantities.psi_axis)
-    eqt1d_rho_tor_norm = profiles_1d.grid.rho_tor_norm
-    plasma = TorJ.Plasma(R_grid, z_grid, eq2d_psi_norm, cp1_psi_norm,
-                        profiles_1d.electrons.density,
-                        profiles_1d.electrons.temperature,
-                        eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
-                        eq_slice.profiles_2d[1].b_field_tor,
-                        eq1d_psi_norm, eq_slice.profiles_1d.volume);
-    # For comparing against TORBEAM we want less dispersion
-    plasma_low_density = TorJ.Plasma(R_grid, z_grid, eq2d_psi_norm, cp1_psi_norm,
-                        profiles_1d.electrons.density * 0.3,
-                        profiles_1d.electrons.temperature,
-                        eq_slice.profiles_2d[1].b_field_r, eq_slice.profiles_2d[1].b_field_z,
-                        eq_slice.profiles_2d[1].b_field_tor,
-                        eq1d_psi_norm, eq_slice.profiles_1d.volume);
-
     f = 85.5E9
-    f_abs_test = 92.5E9
+    
     R0 = 2.5
     phi0 = 0.0
     x0 = R0 * cos(phi0)
@@ -73,11 +52,40 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
     steering_angle_pol = deg2rad(30.0) # Convert from TORBEAM convetion to IMAS (they are the same for phi_tor ==0)
     steering_angle_tor = 0.0
 
+    f_abs_test = 92.5E9
     # Define psi grid for dP_dV calculation
     psi_dP_dV = Vector(LinRange(0.0, 1.0, 1000))
 
     # Set up the points for the resonance ellipse integration in the absorption coefficient
     TorJ.abs_Al_init(24)
+
+    # Fill in ec_launchers and pulse_schedule
+    IMAS.resize!(dd.ec_launchers.beam, 2)
+    dd.ec_launchers.beam[1].time = ones(Float64, 1) .* 2.0
+    dd.ec_launchers.beam[1].frequency.data = ones(Float64, 1) .* f
+    dd.ec_launchers.beam[1].frequency.time = ones(Float64, 1) .* 2.0
+    dd.ec_launchers.beam[1].power_launched.data = ones(Float64, 1) .* 1.e6
+    dd.ec_launchers.beam[1].power_launched.time = ones(Float64, 1) .* 2.0
+    dd.ec_launchers.beam[1].mode = -1
+
+    dd.ec_launchers.beam[1].launching_position.r =  ones(Float64, 1) .* R0
+    dd.ec_launchers.beam[1].launching_position.phi = ones(Float64, 1) .* phi0
+    dd.ec_launchers.beam[1].launching_position.z = ones(Float64, 1) .* z0
+
+    dd.ec_launchers.beam[1].steering_angle_pol = ones(Float64, 1) .* steering_angle_pol
+    dd.ec_launchers.beam[1].steering_angle_tor = ones(Float64, 1) .* steering_angle_tor
+
+    dd.ec_launchers.beam[1].spot.size = ones(Float64, (2, 1)) .* spot_size
+    dd.ec_launchers.beam[1].phase.curvature = ones(Float64, (2, 1)) .* inverse_curvature_radius
+
+    dd.ec_launchers.beam[2] = deepcopy(dd.ec_launchers.beam[1])
+    dd.ec_launchers.beam[2].frequency.data[:] .= f_abs_test
+
+    IMAS.resize!(dd.pulse_schedule.ec.beam, 2)
+    dd.pulse_schedule.ec.time = ones(Float64, 1) .* 2.0
+    dd.pulse_schedule.ec.beam[1].power_launched.reference = ones(Float64, 1) .* 1.e6
+    dd.pulse_schedule.ec.beam[2].power_launched.reference = ones(Float64, 1) .* 1.e6
+
     # Set this global so we don't repeat this when we `include` it again
     global TEST_DATA_LOADED = true
 end
