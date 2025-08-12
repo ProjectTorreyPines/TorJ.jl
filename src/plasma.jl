@@ -8,7 +8,8 @@ struct Plasma{R<:Vector, I2<:Extrapolation, I1<:Extrapolation, T<:Real}
     Br_spline::I2
     Bz_spline::I2
     Bϕ_spline::I2
-    volume_psi_spline::I1
+    volume_psi_norm_spline::I1
+    rho_tor_psi_norm_spline::I1
     psi_prof_max::T
     
 end
@@ -35,7 +36,7 @@ function Plasma(dd::IMAS.dd; ne_scale::Float64=1.0)
     return Plasma(eqt2d.grid.dim1, eqt2d.grid.dim2, eqt2d.psi, 
                   eqt2d.b_field_r, eqt2d.b_field_z, eqt2d.b_field_tor,
                   eqglobs.psi_axis, eqglobs.psi_boundary,
-                  eqt1d.psi, eqt1d.volume, 
+                  eqt1d.psi, eqt1d.volume,  eqt1d.rho_tor_norm,
                   cp1d.grid.psi, cp1d.electrons.density .* ne_scale,
                   cp1d.electrons.temperature)
 end
@@ -49,7 +50,7 @@ Generate Plasma structure from 2D maps of densities and magnetic fields. All fie
 function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_grid::Matrix{T}, 
                 Br_data::Matrix{T}, Bz_data::Matrix{T}, Bϕ_data::Matrix{T},
                 psi_axis::T, psi_boundary::T,
-                eqt1d_psi:: Vector{T}, eqt1d_volume:: Vector{T},
+                eqt1d_psi:: Vector{T}, eqt1d_volume:: Vector{T}, eqt1d_rho_tor_norm:: Vector{T},
                 psi_core_prof::Vector{T}, ne_prof:: Vector{T}, Te_prof:: Vector{T}) where {T<:Real}
     # Interpolation objects
     _norm = psi -> (psi .- psi_axis) ./ (psi_boundary - psi_axis)
@@ -63,7 +64,9 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_grid::Matrix{T},
     
     psi_norm_range = range(_norm(eqt1d_psi[1]), _norm(eqt1d_psi[end]), length(eqt1d_psi))
     volume_eq_dist = IMAS.interp1d(_norm(eqt1d_psi), eqt1d_volume, :cubic).(psi_norm_range)
-    volume_psi_spline = cubic_spline_interpolation(psi_norm_range, volume_eq_dist; extrapolation_bc=Line())
+    volume_psi_norm_spline = cubic_spline_interpolation(psi_norm_range, volume_eq_dist; extrapolation_bc=Line())
+    rho_tor_norm_eq_dist = IMAS.interp1d(_norm(eqt1d_psi), eqt1d_rho_tor_norm, :cubic).(psi_norm_range)
+    rho_tor_psi_norm_spline = cubic_spline_interpolation(psi_norm_range, rho_tor_norm_eq_dist; extrapolation_bc=Line())
 
     ne_spline = make_2d_prof_spline(r_range, z_range, _norm(psi_core_prof), ne_prof, _norm(psi_grid))
     Te_spline = make_2d_prof_spline(r_range, z_range, _norm(psi_core_prof), Te_prof, _norm(psi_grid))
@@ -77,7 +80,8 @@ function Plasma(R_coords::Vector{T}, Z_coords::Vector{T}, psi_grid::Matrix{T},
         Br_spline,
         Bz_spline,
         Bϕ_spline,
-        volume_psi_spline,
+        volume_psi_norm_spline,
+        rho_tor_psi_norm_spline,
         maximum(_norm(eqt1d_psi)))
 end
 
@@ -130,11 +134,11 @@ function power_deposition_profile(plasma::Plasma, s::Vector{T}, x::Vector{Vector
     psi_diff_spline = Dierckx.Spline1D(s, psi_s .- psi_dP_dV[j], k=3)
     # Find root with outer flux surface shell
     outer_roots = Dierckx.roots(psi_diff_spline)
-    outer_volume = plasma.volume_psi_spline(psi_dP_dV[j])
+    outer_volume = plasma.volume_psi_norm_spline(psi_dP_dV[j])
     j -= 1
     while j > 0
         # Step through all volumes and integrate the power and volume change for each psi
-        inner_volume = plasma.volume_psi_spline(psi_dP_dV[j])
+        inner_volume = plasma.volume_psi_norm_spline(psi_dP_dV[j])
         δV = outer_volume - inner_volume
         # Create a function that represents psi_spline(s) - psi_target = 0
         psi_diff_spline = Dierckx.Spline1D(s, psi_s .- psi_dP_dV[j], k=3)

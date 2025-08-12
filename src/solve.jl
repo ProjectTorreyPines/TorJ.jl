@@ -89,7 +89,7 @@ function vacuum_plasma_refraction(plasma::Plasma, p_plasma::AbstractVector{T},
     n = n ./ LinearAlgebra.norm(n)
     x0 = N0 .* N_est
     solver_results = NLsolve.nlsolve((F,N) -> refraction_equations!(F, N, X, Y, N0 / LinearAlgebra.norm(N0), n, b, mode), 
-                             x0, autodiff = :forward; ftol = 1.e-12)
+                             x0, autodiff = :forward; ftol = 5.e-13)
     return solver_results.zero
 end
 """
@@ -158,7 +158,8 @@ function make_ray(plasma::Plasma, x0::AbstractVector{<:T}, N_vacuum::AbstractVec
     @assert evaluate(plasma.psi_norm_spline, p_plasma) <= plasma.psi_prof_max
 
     N_plasma = vacuum_plasma_refraction(plasma, p_plasma, N_vacuum, 2 * pi *f, mode)
-    @assert abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *f, mode)) < 1e-12 "Initial state is not on λ = 0 surface"
+    initial_lambda = abs(dispersion_relation(p_plasma, N_plasma, plasma, 2 * pi *f, mode))
+    @assert initial_lambda < 1e-12 "Initial state is not on λ = 0 surface. λ=$initial_lambda"
 
     # Initial condition: [position, refractive_index, power]
     u0 = [p_plasma; N_plasma; 1.0]
@@ -328,9 +329,11 @@ function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
     
     psi_norm_dP_dV = Vector(LinRange(0.0, 1.0, torj_params.N_dP_dV))
     beam_tasks = []
-    wait(Dagger.spawn_sequential() do
-        for ibeam in 1:nbeam
-            beam = dd.ec_launchers.beam[ibeam]
+    beam_weights = []
+    # This spawns the beam tasks serially so that we can parallelize over rays first
+    Dagger.spawn_sequential() do
+        for i_beam in 1:nbeam
+            beam = dd.ec_launchers.beam[i_beam]
             f = IMAS.@ddtime(beam.frequency.data)
 
             # Elliptical beam parameters (not supported yet) -> circular beam
@@ -339,32 +342,36 @@ function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
             
             # Sign convention opposite to IMAS
             mode = -beam.mode
-            push!(beam_tasks, Dagger.@spawn make_beam(plasma, 
+            ray_tasks, ray_weights = spawn_beam_tasks(plasma, 
                     beam.launching_position.r[1], beam.launching_position.phi[1], 
                     beam.launching_position.z[1], 
-                    IMAS.@ddtime(dd.ec_launchers.beam[ibeam].steering_angle_tor), 
-                    IMAS.@ddtime(dd.ec_launchers.beam[ibeam].steering_angle_pol), 
+                    IMAS.@ddtime(dd.ec_launchers.beam[i_beam].steering_angle_tor), 
+                    IMAS.@ddtime(dd.ec_launchers.beam[i_beam].steering_angle_pol), 
                     spot_size, inverse_curvature_radius, f, mode, 
                     torj_params.s_max, psi_norm_dP_dV; N_rings = torj_params.N_rings, 
-                    min_azimuthal_points = torj_params.min_azimuthal_points))
-            
+                    min_azimuthal_points = torj_params.min_azimuthal_points)
+            push!(beam_tasks, ray_tasks)
+            push!(beam_weights, ray_weights)
         end
-    end)
-     # Collect results preserving order (ensures correspondence with ray_weights)
-    beam_results = [Dagger.fetch(beam_tasks[i]) for i in eachindex(beam_tasks)]
+    end
+
+    # Fetch results from all beams
+    beam_results = []
+    for i_beam in eachindex(beam_tasks)
+        result = fetch_beam_results(beam_tasks[i_beam], beam_weights[i_beam], psi_norm_dP_dV)
+        push!(beam_results, result)
+    end
 
     # Prepare the output
-    rho_tor_norm_interpolator = IMAS.interp1d(eqt1d.psi, eqt1d.rho_tor_norm)
+    
     resize!(dd.waves.coherent_wave, nbeam)
-    rho_tor_norm_dP_dV = rho_tor_norm_interpolator(psi_norm_dP_dV)
-
     for i_beam in eachindex(beam_results)
         arc_lengths, trajectories, ray_powers, dP_dV, deposited_power, ray_weights = beam_results[i_beam]
-        beam = dd.ec_launchers.beam[ibeam]
-        ps_beam = dd.pulse_schedule.ec.beam[ibeam]
+        beam = dd.ec_launchers.beam[i_beam]
+        ps_beam = dd.pulse_schedule.ec.beam[i_beam]
         power_launched = IMAS.@ddtime(ps_beam.power_launched.reference)
 
-        wv = dd.waves.coherent_wave[ibeam]
+        wv = dd.waves.coherent_wave[i_beam]
         wv.identifier.antenna_name = beam.name
         wv.identifier.type.description = "TorJ"
         wv.identifier.type.name = "EC"
@@ -376,11 +383,10 @@ function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
         # torj never sees the launched power so we handle it here
         wvg.electrons.power_thermal = deposited_power * power_launched
         wvg.power = deposited_power * power_launched
-        wvg.current_tor = undef
 
         wv1d = resize!(wv.profiles_1d) # global_time
         wv.profiles_1d[1].time = IMAS.@ddtime(dd.equilibrium.time)
-        wv1d.grid.rho_tor_norm = rho_tor_norm_dP_dV
+        wv1d.grid.rho_tor_norm = plasma.rho_tor_psi_norm_spline(psi_norm_dP_dV)
         wv1d.grid.psi = psi_norm_dP_dV
         wv1d.power_density = dP_dV .* power_launched
 
@@ -396,19 +402,18 @@ function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
 
         # LOOP OVER RAYS
         wvb = resize!(wv.beam_tracing) # global_time
-        resize!(wvb.beam, torbeam_params.n_ray) # Five beams/per gyrotron
-        iend[] = min(npointsout[ibeam], ntraj)
+        resize!(wvb.beam, length(ray_weights)) # Five beams/per gyrotron
         if power_launched > 0.0
             for i_ray in eachindex(ray_weights)
                 wvb.beam[i_ray].power_initial = ray_weights[i_ray] * power_launched
                 s = arc_lengths[i_ray]
                 x = [point[1] for point in trajectories[i_ray]]
                 y = [point[2] for point in trajectories[i_ray]]
-                z = [point[z] for point in trajectories[i_ray]]
-                r = hypot(x, y)
+                z = [point[3] for point in trajectories[i_ray]]
+                r = hypot.(x, y)
                 wvb.beam[i_ray].length = s
                 wvb.beam[i_ray].position.r = r
-                wvb.beam[i_ray].position.phi = phi
+                wvb.beam[i_ray].position.phi = atan.(y,x)
                 wvb.beam[i_ray].position.z = z
             end
         end

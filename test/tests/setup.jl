@@ -31,7 +31,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
     dd = IMAS.json2imas(artifact_path *"/data/sample_L_mode_peaked.json"; error_on_missing_coordinates=false)
     dd.global_time = 2.0
 
-    plasma = TorJ.Plasma(dd);
+    plasma = TorJ.Plasma(dd)
     # For comparing against TORBEAM we want less dispersion
     plasma_low_density = TorJ.Plasma(dd; ne_scale=0.3);
 
@@ -61,6 +61,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
 
     # Fill in ec_launchers and pulse_schedule
     IMAS.resize!(dd.ec_launchers.beam, 2)
+    dd.ec_launchers.beam[1].name = "Test gyrotron 1"
     dd.ec_launchers.beam[1].time = ones(Float64, 1) .* 2.0
     dd.ec_launchers.beam[1].frequency.data = ones(Float64, 1) .* f
     dd.ec_launchers.beam[1].frequency.time = ones(Float64, 1) .* 2.0
@@ -80,6 +81,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
 
     dd.ec_launchers.beam[2] = deepcopy(dd.ec_launchers.beam[1])
     dd.ec_launchers.beam[2].frequency.data[:] .= f_abs_test
+    dd.ec_launchers.beam[1].name = "Test gyrotron 2"
 
     IMAS.resize!(dd.pulse_schedule.ec.beam, 2)
     dd.pulse_schedule.ec.time = ones(Float64, 1) .* 2.0
