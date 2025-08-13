@@ -3,6 +3,7 @@ import TorJ: Dierckx
 #Higher frequency for full beam test to avoid cut-off
 
 @testset "make_beam test" begin
+    println("Using $(Threads.nthreads()) threads")
     @time arclengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor, 
                                         steering_angle_pol, spot_size, 
                                         inverse_curvature_radius, f_abs_test, 1, 1.0, psi_dP_dV);
@@ -20,10 +21,15 @@ import TorJ: Dierckx
     println("Checking power deposition and ray absorbed power consistency: $absorbed_power_fraction, $absorbed_power")
     @test isapprox(absorbed_power_fraction, absorbed_power; atol=0.001, rtol=1.e-3)
     # Check that the power deposition profile yields the absorbed power when integrated over the plasma volume
-    P_test = 0.0
-    volume_psi_spl = Dierckx.Spline1D(eq1d_psi_norm, eq_slice.profiles_1d.volume)
+    eqt = dd.equilibrium.time_slice[]
+    eqglobs = eqt.global_quantities
+    eqt1d = eqt.profiles_1d
+    _norm = psi -> (psi .- eqglobs.psi_axis) ./ (eqglobs.psi_boundary - eqglobs.psi_axis)
+    volume_psi_spl = Dierckx.Spline1D(_norm(eqt1d.psi), eqt1d.volume)
+    _norm(eqt1d.psi)
     # This is equidistant
     dpsi = psi_dP_dV[2] - psi_dP_dV[1]
+    P_test = 0.0
     for (i, psi_norm) in enumerate(psi_dP_dV)
         P_test += Dierckx.derivative(volume_psi_spl, psi_norm, nu=1) * dP_dV[i] * dpsi
     end

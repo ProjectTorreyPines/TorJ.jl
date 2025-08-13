@@ -1,7 +1,7 @@
 function abs_Al_init(N_absz::Int)
     # Get Gauss-Legendre quadrature points and weights on [-1, 1]
     global _int_weights, _int_absz
-    _int_absz, _int_weights = gausslegendre(N_absz)
+    _int_absz, _int_weights = FastGaussQuadrature.gausslegendre(N_absz)
     _int_absz = Vector{Float64}(_int_absz)
     _int_weights = Vector{Float64}(_int_weights)
 end
