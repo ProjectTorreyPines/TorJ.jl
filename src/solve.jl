@@ -319,7 +319,7 @@ function make_beam(plasma::Plasma, r::T, phi::T, z::T, steering_angle_tor::T, st
     return fetch_beam_results(ray_tasks, ray_weights, psi_dP_dV)
 end
 
-function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
+function process_ids!(dd::IMAS.dd; torj_params::TorJParams = TorJParams())
     nbeam = length(dd.ec_launchers.beam)
     if nbeam < 1
         return nbeam
@@ -415,6 +415,7 @@ function process_ids!(dd:: IMAS.dd; torj_params::TorJParams = TorJParams())
                 wvb.beam[i_ray].position.r = r
                 wvb.beam[i_ray].position.phi = atan.(y,x)
                 wvb.beam[i_ray].position.z = z
+                wvb.beam[i_ray].electrons.power = (1.0 .- ray_powers[i_ray]) .* (ray_weights[i_ray] * power_launched)
             end
         end
 

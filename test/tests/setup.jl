@@ -81,7 +81,7 @@ if !@isdefined(TEST_DATA_LOADED) || FORCE_RELOAD_TEST_DATA
 
     dd.ec_launchers.beam[2] = deepcopy(dd.ec_launchers.beam[1])
     dd.ec_launchers.beam[2].frequency.data[:] .= f_abs_test
-    dd.ec_launchers.beam[1].name = "Test gyrotron 2"
+    dd.ec_launchers.beam[2].name = "Test gyrotron 2"
 
     IMAS.resize!(dd.pulse_schedule.ec.beam, 2)
     dd.pulse_schedule.ec.time = ones(Float64, 1) .* 2.0
