@@ -1,8 +1,8 @@
-## TorJ -- TOroilda Rays in Julia
+## TorJ -- TOroidal Rays in Julia
 
 #### Install
 
-See https://pkgdocs.julialang.org/v1 to lear about Julia packages system
+See https://pkgdocs.julialang.org/v1 to learn about Julia packages system
 
 ```
 cd ~./julia/dev
