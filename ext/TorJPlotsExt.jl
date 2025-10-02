@@ -127,7 +127,8 @@ Optionally plots reference trajectories from tb_ref if provided.
 # Returns
 - Tuple of Plots.jl objects: (X_Y_plot, R_z_projection_plot)
 """
-function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weights; tb_ref=nothing, kwargs...)
+function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weights; 
+                                   tb_ref=nothing, p_rz=nothing, p_xy=nothing,kwargs...)
     
     # Create the 3D plot
     println("Got $(length(weights)) weights for $(length(arc_lengths)) rays")
@@ -189,10 +190,11 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
     Plots.pyplot()
 
     # Create X-Y projection plot
-    p_xy = Plots.plot(xlabel="X [m]", ylabel="Y [m]",
-               title="X-Y Projection of Beam Trajectories",
-               legend=false, dpi=300, aspect_ratio=:equal; kwargs...)
-    
+    if isnothing(p_xy)
+        p_xy = Plots.plot(xlabel="X [m]", ylabel="Y [m]",
+                title="X-Y Projection of Beam Trajectories",
+                legend=false, dpi=300, aspect_ratio=:equal; kwargs...)
+    end
     # Plot resampled trajectories in X-Y projection
     for i in 1:length(weights)
         println("Initial vs. final beam power: $(ray_powers[i][1]) $(ray_powers[i][end])")
@@ -224,10 +226,11 @@ function plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, weight
     end
     
     # Create R-z projection plot
-    p_rz = Plots.plot(xlabel="R [m]", ylabel="Z [m]",
-               title="R-Z Projection of Beam Trajectories",
-               legend=false, dpi=300, aspect_ratio=:equal)
-    
+    if isnothing(p_rz)
+        p_rz = Plots.plot(xlabel="R [m]", ylabel="Z [m]",
+                title="R-Z Projection of Beam Trajectories",
+                legend=false, dpi=300, aspect_ratio=:equal)
+    end
     # Plot resampled trajectories in R-z projection
     for i in 1:length(weights)
         ray_trajectory = resampled_trajectories[i]
@@ -309,9 +312,11 @@ function plot_beam_from_setup(; s_max=0.4, kwargs...)
     include(joinpath(@__DIR__, "../test/tests/setup.jl"))
     
     # Generate beam trajectories using make_beam
-    arc_lengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, R0, phi0, z0, steering_angle_tor,
+    arc_lengths, trajectories, ray_powers, dP_dV, absorbed_power_fraction, ray_weights = TorJ.make_beam(plasma_low_density, 
+                                               R0, phi0, z0, steering_angle_tor,
                                                steering_angle_pol, spot_size, 
-                                               inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV; N_rings=3, min_azimuthal_points=5)
+                                               inverse_curvature_radius, f_abs_test, 1, s_max, psi_dP_dV; 
+                                               N_rings=3, min_azimuthal_points=5)
     # Create first two plots - beam trajectories (X-Y and R-Z projections)
     p1, p_rz = plot_beam_trajectories_3d(arc_lengths, trajectories, ray_powers, ray_weights; tb_ref=tb_ref, kwargs...)
     
@@ -342,6 +347,42 @@ function plot_beam_from_setup(; s_max=0.4, kwargs...)
     return p1, p_rz, p3
 end
 
+"""
+    plot_beam_from_dd(; torj_params::TorJ.TorJParams)
 
+Create and plot beam trajectories using make_beam and parameters from setup.jl.
+Creates three plots: X-Y projection, R-Z projection, and power deposition profile (dP/dV vs ψ).
+
+# Arguments  
+- `torj_params...`: Optional configuration structure for TorJ
+
+# Returns
+- Tuple of three Plots.jl objects: (r-z-plot, x-y-plot, power_deposition_plot)
+"""
+function plot_beam_from_dd(; dd::IMAS.dd = nothing, torj_params::TorJ.TorJParams = TorJ.TorJParams())
+    # Import setup parameters (similar to test_make_beam.jl)
+    if isnothing(dd)
+        include(joinpath(@__DIR__, "../test/tests/setup.jl"))
+    end
+    # Generate beam trajectories using make_beam
+    TorJ.process_ids!(dd; torj_params=torj_params)
+    Plots.pyplot()
+    p_rz = Plots.plot(xlabel="R [m]", ylabel="Z [m]",
+                title="R-Z Projection of Beam Trajectories",
+                legend=false, dpi=300, aspect_ratio=:equal)
+    Plots.plot!(p_rz, dd.waves)
+    # display(p_rz)
+    p_dP_dV = Plots.plot(xlabel="ρ_{tor}", ylabel="dP/dV", 
+              title="Power Deposition Profile",
+              linewidth=2, dpi=300,
+              label="TorJ")
+    for (i_wave, wv) in enumerate(dd.waves.coherent_wave)
+        wv1d = wv.profiles_1d[]
+        Plots.plot!(p_dP_dV, wv1d.grid.rho_tor_norm, wv1d.power_density, label=wv.identifier.antenna_name)
+    end
+    combined_plot = Plots.plot(p_rz, p_dP_dV, layout=(1, 2), size=(1920, 900))
+    Plots.display(combined_plot)
+    # return p_rz, p_dP_dV
+end
 
 end # module TorJPlotsExt
